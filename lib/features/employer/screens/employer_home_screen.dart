@@ -38,6 +38,8 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
 
     final result = await JobService.instance.getEmployerJobs();
 
+    if (!mounted) return;
+
     if (result.success && result.data != null) {
       final List<dynamic> list = result.data!['data'] as List<dynamic>? ?? [];
       setState(() {
