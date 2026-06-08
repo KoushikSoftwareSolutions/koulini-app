@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/premium_image.dart';
+import '../../../core/services/application_service.dart';
 
 class ApplicantDetailsScreen extends StatefulWidget {
   final bool isWork;
@@ -21,11 +23,83 @@ class ApplicantDetailsScreen extends StatefulWidget {
 }
 
 class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
-  String _status = 'Pending';
+  late String _status;
+  bool _isUpdating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _status = widget.applicant['status'] ?? 'Pending';
+  }
+
+  Future<void> _updateStatus(String newStatus) async {
+    setState(() => _isUpdating = true);
+
+    final appId = widget.applicant['_id'] as String? ?? '';
+    final result = await ApplicationService.instance.updateApplicationStatus(
+      applicationId: appId,
+      status: newStatus,
+    );
+
+    setState(() => _isUpdating = false);
+
+    if (result.success) {
+      setState(() {
+        _status = newStatus;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(newStatus == 'Approved' 
+                ? 'Application Approved! Contact number revealed.' 
+                : 'Application Rejected.'),
+            backgroundColor: newStatus == 'Approved' ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? 'Failed to update status. Please try again.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final detailHeader = widget.isWork ? 'Work Details' : 'Job Details';
+    final worker = widget.applicant['worker'] as Map<String, dynamic>? ?? {};
+    final name = worker['name'] ?? 'Unknown';
+    final skill = worker['primarySkill'] ?? 'General Labour';
+    final age = worker['age'] ?? 'N/A';
+    final gender = worker['gender'] ?? 'N/A';
+    final experience = worker['experienceLevel'] ?? 'No Experience';
+    final rating = worker['rating']?.toString() ?? '0.0';
+    final photo = worker['profilePhoto'] as String? ?? 'https://i.pravatar.cc/150?u=$name';
+
+    // Formatting date
+    String formattedAppliedDate = 'Recently';
+    try {
+      final applied = widget.applicant['appliedAt'] as String;
+      formattedAppliedDate = DateFormat('dd MMM yyyy').format(DateTime.parse(applied));
+    } catch (_) {}
+
+    // Formatting location
+    String locText = 'Bodhan';
+    final loc = worker['location'] as Map?;
+    if (loc != null) {
+      locText = loc['mandal'] ?? loc['district'] ?? 'Bodhan';
+    }
+
+    final jobLoc = widget.job['location'] as Map?;
+    final jobMandal = jobLoc?['mandal'] ?? 'Bodhan';
+    final wage = widget.job['salary'] ?? widget.job['wage'] ?? 'N/A';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -61,7 +135,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         PremiumImage(
-                          imageUrl: widget.applicant['avatar'] ?? 'https://i.pravatar.cc/150?u=manoj',
+                          imageUrl: photo,
                           width: 64.r,
                           height: 64.r,
                           isAvatar: true,
@@ -72,7 +146,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                widget.applicant['name'] ?? 'Suresh Babu',
+                                name,
                                 style: GoogleFonts.poppins(
                                   fontSize: 18.sp,
                                   fontWeight: FontWeight.bold,
@@ -81,7 +155,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                               ),
                               SizedBox(height: 2.h),
                               Text(
-                                '32, Male . Bodhan',
+                                '$age, $gender · $locText',
                                 style: GoogleFonts.poppins(
                                   fontSize: 13.sp,
                                   color: AppColors.textLightGray,
@@ -89,7 +163,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                               ),
                               SizedBox(height: 2.h),
                               Text(
-                                'Applied 12 Mar',
+                                'Applied $formattedAppliedDate',
                                 style: GoogleFonts.poppins(
                                   fontSize: 12.sp,
                                   color: AppColors.textLightGray.withValues(alpha: 0.7),
@@ -134,7 +208,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            widget.job['title'] ?? 'Mason / Construction Worker',
+                            widget.job['title'] ?? 'Job Title',
                             style: GoogleFonts.poppins(
                               fontSize: 15.sp,
                               fontWeight: FontWeight.bold,
@@ -143,7 +217,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                           ),
                           SizedBox(height: 4.h),
                           Text(
-                            '₹${widget.job['wage'] ?? "600/day"} · Full-time · Bodhan',
+                            '₹$wage · ${widget.job['jobType'] ?? "Full"} · $jobMandal',
                             style: GoogleFonts.poppins(
                               fontSize: 13.sp,
                               color: AppColors.textLightGray,
@@ -166,13 +240,13 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                     SizedBox(height: 16.h),
 
                     // Details Rows
-                    _buildDetailRow('Skills', widget.applicant['skill'] ?? 'Mason, Plastering, Brick Work'),
-                    _buildDetailRow('Experience', widget.applicant['experience'] ?? '3+ years'),
-                    _buildDetailRow('Availability', 'Immediate'),
-                    _buildDetailRow('Applied on', '12 Mar 2026'),
+                    _buildDetailRow('Skills', skill),
+                    _buildDetailRow('Experience', experience),
+                    _buildDetailRow('Rating', '$rating ★'),
+                    _buildDetailRow('Applied on', formattedAppliedDate),
                     _buildDetailRow(
                       'Phone', 
-                      _status == 'Approved' ? '+91 9876543210' : 'Hidden until approved',
+                      _status == 'Approved' ? (worker['phone'] ?? 'N/A') : 'Hidden until approved',
                       valueColor: _status == 'Approved' ? AppColors.textBlack : AppColors.textLightGray,
                     ),
                   ],
@@ -194,68 +268,56 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                     ),
                   ],
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          setState(() => _status = 'Rejected');
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Application Rejected'),
-                              backgroundColor: Color(0xFFC62828),
+                child: _isUpdating
+                    ? const Center(
+                        child: CircularProgressIndicator(color: AppColors.primaryPurple),
+                      )
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => _updateStatus('Rejected'),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: Size(double.infinity, 50.h),
+                                side: const BorderSide(color: Color(0xFFC62828)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                              ),
+                              child: Text(
+                                '✕ Reject',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFFC62828),
+                                ),
+                              ),
                             ),
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: Size(double.infinity, 50.h),
-                          side: const BorderSide(color: Color(0xFFC62828)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12.r),
                           ),
-                        ),
-                        child: Text(
-                          '✕ Reject',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFFC62828),
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 16.w),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          setState(() => _status = 'Approved');
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Application Approved! Contact number revealed.'),
-                              backgroundColor: Color(0xFF2E7D32),
+                          SizedBox(width: 16.w),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => _updateStatus('Approved'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2E7D32),
+                                foregroundColor: Colors.white,
+                                minimumSize: Size(double.infinity, 50.h),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: Text(
+                                '✓ Approve',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E7D32),
-                          foregroundColor: Colors.white,
-                          minimumSize: Size(double.infinity, 50.h),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12.r),
                           ),
-                          elevation: 0,
-                        ),
-                        child: Text(
-                          '✓ Approve',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
           ],
         ),

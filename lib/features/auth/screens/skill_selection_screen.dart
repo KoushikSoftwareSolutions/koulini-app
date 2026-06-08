@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/auth_state.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import 'location_selection_screen.dart';
@@ -350,6 +352,34 @@ class _SkillSelectionScreenState extends State<SkillSelectionScreen> {
               ),
               child: ElevatedButton(
                 onPressed: () {
+                  final customSkill = _customSkillController.text.trim();
+                  if (!_customSkillChecked && _selectedPrimarySkill == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please select a primary skill'),
+                        backgroundColor: Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                    return;
+                  }
+                  if (_customSkillChecked && customSkill.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please type your custom skill name'),
+                        backgroundColor: Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Save to state
+                  final authState = Provider.of<AuthState>(context, listen: false);
+                  authState.pendingSkill = _selectedPrimarySkill;
+                  authState.pendingCustomSkill = _customSkillChecked ? customSkill : null;
+                  authState.pendingExperienceLevel = _selectedExperience;
+
                   Navigator.push(
                     context,
                     PageRouteBuilder(

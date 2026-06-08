@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/services/job_service.dart';
 import 'post_success_screen.dart';
 
 class CreateJobScreen extends StatefulWidget {
@@ -18,6 +19,7 @@ class CreateJobScreen extends StatefulWidget {
 
 class _CreateJobScreenState extends State<CreateJobScreen> {
   int _currentStep = 1;
+  bool _isLoading = false;
   
   // Form controllers
   final _titleController = TextEditingController();
@@ -685,7 +687,7 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
   }
 
   Widget _buildPayTypeSelector() {
-    final options = ['Per Day', 'Per week', 'Per month', 'Fixed'];
+    final options = ['Per Day', 'Per Week', 'Per Month', 'Fixed'];
     return Row(
       children: options.map((option) {
         final isSelected = _selectedPayType == option;
@@ -960,6 +962,102 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
     );
   }
 
+  Future<void> _submitJob() async {
+    final salary = _salaryController.text.trim();
+    final state = _selectedState;
+    final district = _selectedDistrict;
+    final mandal = _selectedMandal;
+    final contactName = _contactNameController.text.trim();
+
+    if (salary.isEmpty || state == null || district == null || mandal == null || contactName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill all required fields marked with *'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    // Map jobType string to backend enum
+    String mappedJobType = 'Full';
+    if (_jobType == 'Part time') mappedJobType = 'Part';
+    if (_jobType == 'Seasonal') mappedJobType = 'Seasonal';
+    if (_jobType == 'One time') mappedJobType = 'One-time';
+
+    int openings = 1;
+    if (_noOfOpenings == '10+') {
+      openings = 10;
+    } else {
+      openings = int.tryParse(_noOfOpenings) ?? 1;
+    }
+
+    final jobTitle = _selectedJobTitle ??
+        (_titleController.text.trim().isNotEmpty
+            ? _titleController.text.trim()
+            : (_selectedCategory ?? (widget.isWork ? 'Work Posting' : 'Job Posting')));
+
+    final jobData = {
+      'title': jobTitle,
+      'category': _selectedCategory ??
+          (_customCategoryController.text.trim().isNotEmpty
+              ? _customCategoryController.text.trim()
+              : 'General'),
+      'jobType': mappedJobType,
+      'duration': _selectedDuration,
+      'numberOfOpenings': openings,
+      'payType': _selectedPayType ?? 'Per Day',
+      'salary': salary,
+      'description': _descriptionController.text.trim(),
+      'requirements': widget.isWork 
+          ? _selectedWorkRequirements.toList() 
+          : _requirementsController.text.trim().split('\n').where((r) => r.isNotEmpty).toList(),
+      'workDescriptions': _selectedWorkDescriptions.toList(),
+      'isWork': widget.isWork,
+      'resumeRequired': _resumeCompulsory,
+      'contactName': contactName,
+      'location': {
+        'state': state,
+        'district': district,
+        'mandal': mandal,
+        if (_villageController.text.trim().isNotEmpty) 'village': _villageController.text.trim(),
+      }
+    };
+
+    final result = await JobService.instance.createJob(jobData);
+
+    setState(() => _isLoading = false);
+
+    if (result.success) {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PostSuccessScreen(
+              isWork: widget.isWork,
+              title: jobTitle,
+              wage: salary,
+              type: _jobType,
+            ),
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? 'Failed to create job posting. Please try again.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildBottomButton() {
     String buttonText = 'Next: Salary & Location';
     if (_currentStep == 2) buttonText = 'Next: Description';
@@ -978,23 +1076,15 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
         ],
       ),
       child: ElevatedButton(
-        onPressed: () {
-          if (_currentStep < 3) {
-            setState(() => _currentStep++);
-          } else {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => PostSuccessScreen(
-                  isWork: widget.isWork,
-                  title: _selectedCategory ?? (_selectedJobTitle ?? (widget.isWork ? 'Mason Work' : 'Mason/Construction worker')),
-                  wage: _salaryController.text,
-                  type: _jobType,
-                ),
-              ),
-            );
-          }
-        },
+        onPressed: _isLoading 
+            ? null 
+            : () {
+                if (_currentStep < 3) {
+                  setState(() => _currentStep++);
+                } else {
+                  _submitJob();
+                }
+              },
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryPurple,
           foregroundColor: Colors.white,
@@ -1002,10 +1092,19 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
           elevation: 0,
         ),
-        child: Text(
-          buttonText,
-          style: GoogleFonts.poppins(fontSize: 18.sp, fontWeight: FontWeight.bold),
-        ),
+        child: _isLoading
+            ? SizedBox(
+                height: 24.h,
+                width: 24.h,
+                child: const CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : Text(
+                buttonText,
+                style: GoogleFonts.poppins(fontSize: 18.sp, fontWeight: FontWeight.bold),
+              ),
       ),
     );
   }

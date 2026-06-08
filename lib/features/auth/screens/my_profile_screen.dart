@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/auth_state.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/premium_image.dart';
 
 import 'edit_profile_screen.dart';
 
@@ -10,6 +13,8 @@ class MyProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authState = Provider.of<AuthState>(context);
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -52,13 +57,13 @@ class MyProfileScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildProfileHeader(),
+            _buildProfileHeader(authState),
             SizedBox(height: 24.h),
-            _buildStatsCard(),
+            _buildStatsCard(authState),
             SizedBox(height: 32.h),
-            _buildSkillsSection(),
+            _buildSkillsSection(authState),
             SizedBox(height: 32.h),
-            _buildWorkHistorySection(),
+            _buildWorkHistorySection(authState),
             SizedBox(height: 40.h),
           ],
         ),
@@ -66,36 +71,33 @@ class MyProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileHeader() {
+  Widget _buildProfileHeader(AuthState authState) {
+    final profile = authState.profile;
+    final String name = profile?['name'] ?? 'Worker';
+    final String title = profile?['primarySkill'] ?? profile?['customSkill'] ?? 'General Worker';
+    final loc = profile?['location'] as Map<String, dynamic>?;
+    final String location = loc != null 
+        ? '${loc['village'] ?? loc['mandal'] ?? ''}, ${loc['district'] ?? ''}'.trim()
+        : 'Krishna, Andhra Pradesh';
+    final avatar = (profile?['profilePhoto'] != null && profile!['profilePhoto'].toString().isNotEmpty)
+        ? profile['profilePhoto'].toString()
+        : 'https://i.pravatar.cc/150?u=${profile?['_id'] ?? name}';
+
     return Container(
       width: double.infinity,
       color: const Color(0xFFF9FAFB),
       padding: EdgeInsets.symmetric(vertical: 32.h),
       child: Column(
         children: [
-          Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              CircleAvatar(
-                radius: 54.r,
-                backgroundImage: const NetworkImage('https://i.pravatar.cc/150?u=manoj'),
-              ),
-              Container(
-                padding: EdgeInsets.all(6.w),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
-                  ],
-                ),
-                child: Icon(Icons.edit_outlined, size: 18.sp, color: Colors.black),
-              ),
-            ],
+          PremiumImage(
+            imageUrl: avatar,
+            width: 108.r,
+            height: 108.r,
+            isAvatar: true,
           ),
           SizedBox(height: 16.h),
           Text(
-            'Manoj Kumar',
+            name,
             style: GoogleFonts.poppins(
               fontSize: 22.sp,
               fontWeight: FontWeight.bold,
@@ -104,7 +106,7 @@ class MyProfileScreen extends StatelessWidget {
           ),
           SizedBox(height: 4.h),
           Text(
-            'Mason & Tile Work Specialist',
+            '$title Specialist',
             style: GoogleFonts.poppins(
               fontSize: 14.sp,
               color: AppColors.textLightGray,
@@ -113,10 +115,10 @@ class MyProfileScreen extends StatelessWidget {
           ),
           SizedBox(height: 4.h),
           Text(
-            '@ Machilipatnam, Krishna District',
+            '@ $location',
             style: GoogleFonts.poppins(
               fontSize: 13.sp,
-              color: AppColors.textLightGray.withOpacity(0.7),
+              color: AppColors.textLightGray.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -124,7 +126,12 @@ class MyProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatsCard() {
+  Widget _buildStatsCard(AuthState authState) {
+    final stats = authState.stats;
+    final applicationsStr = stats?['applications']?.toString() ?? '0';
+    final hiredStr = stats?['hired']?.toString() ?? '0';
+    final ratingStr = stats?['rating']?.toString() ?? '0.0';
+
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 24.w),
       padding: EdgeInsets.symmetric(vertical: 20.h),
@@ -134,7 +141,7 @@ class MyProfileScreen extends StatelessWidget {
         border: Border.all(color: const Color(0xFFEEEEEE)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -143,11 +150,11 @@ class MyProfileScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildStatItem('12', 'Applications'),
+          _buildStatItem(applicationsStr, 'Applications'),
           _buildDivider(),
-          _buildStatItem('2', 'Hired'),
+          _buildStatItem(hiredStr, 'Hired'),
           _buildDivider(),
-          _buildStatItem('4.6', 'Ratings'),
+          _buildStatItem(ratingStr, 'Ratings'),
         ],
       ),
     );
@@ -184,8 +191,23 @@ class MyProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSkillsSection() {
-    final skills = ['Mason', 'Tile Work', 'Plastering', 'Painting'];
+  Widget _buildSkillsSection(AuthState authState) {
+    final profile = authState.profile;
+    final List<String> skills = [];
+    if (profile?['primarySkill'] != null) {
+      skills.add(profile!['primarySkill'].toString());
+    }
+    if (profile?['customSkill'] != null) {
+      skills.add(profile!['customSkill'].toString());
+    }
+    if (profile?['otherSkills'] != null) {
+      skills.addAll(List<String>.from(profile!['otherSkills']));
+    }
+    
+    if (skills.isEmpty) {
+      skills.addAll(['General Labour', 'Helper']);
+    }
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 24.w),
       child: Column(
@@ -228,14 +250,16 @@ class MyProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildWorkHistorySection() {
+  Widget _buildWorkHistorySection(AuthState authState) {
+    final historyList = authState.workHistory ?? [];
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 24.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Work History',
+            'Verified Work History',
             style: GoogleFonts.poppins(
               fontSize: 18.sp,
               fontWeight: FontWeight.bold,
@@ -243,9 +267,25 @@ class MyProfileScreen extends StatelessWidget {
             ),
           ),
           SizedBox(height: 16.h),
-          _buildWorkHistoryItem('Vijay Constructions', '2024', 'Mason — 3 months'),
-          SizedBox(height: 12.h),
-          _buildWorkHistoryItem('Reddy’s Farm', '2023', 'Farm Laboure — 2 weeks'),
+          if (historyList.isEmpty)
+            Text(
+              'No verified work history yet.',
+              style: GoogleFonts.poppins(
+                fontSize: 14.sp,
+                color: AppColors.textLightGray,
+              ),
+            )
+          else
+            ...historyList.map((item) {
+              final company = item['companyName'] ?? 'Business Owner';
+              final title = item['title'] ?? 'Worker';
+              final duration = item['duration'] ?? 'Contract';
+              final year = item['year'] ?? '';
+              return Padding(
+                padding: EdgeInsets.only(bottom: 12.h),
+                child: _buildWorkHistoryItem(company, year, '$title — $duration'),
+              );
+            }).toList(),
         ],
       ),
     );

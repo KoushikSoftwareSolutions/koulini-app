@@ -3,9 +3,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/premium_image.dart';
+import '../../../core/services/application_service.dart';
 import 'applicant_details_screen.dart';
 
-class JobApplicantsScreen extends StatelessWidget {
+class JobApplicantsScreen extends StatefulWidget {
   final Map<String, dynamic> job;
   final bool isWork;
 
@@ -16,32 +17,45 @@ class JobApplicantsScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    // Mock applicants for the specific job
-    final List<Map<String, dynamic>> applicants = [
-      {
-        'name': 'Manoj Kumar',
-        'skill': 'Mason & Tile Specialist',
-        'rating': '4.8',
-        'experience': '2 yrs',
-        'avatar': 'https://i.pravatar.cc/150?u=manoj',
-      },
-      {
-        'name': 'Suresh V.',
-        'skill': 'Painter',
-        'rating': '4.5',
-        'experience': '5 yrs',
-        'avatar': 'https://i.pravatar.cc/150?u=suresh',
-      },
-      {
-        'name': 'Rajesh Singh',
-        'skill': 'Electrician',
-        'rating': '4.9',
-        'experience': '3 yrs',
-        'avatar': 'https://i.pravatar.cc/150?u=rajesh',
-      },
-    ];
+  State<JobApplicantsScreen> createState() => _JobApplicantsScreenState();
+}
 
+class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
+  List<Map<String, dynamic>> _applicants = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadApplicants();
+  }
+
+  Future<void> _loadApplicants() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    final jobId = widget.job['_id'] as String? ?? '';
+    final result = await ApplicationService.instance.getJobApplicants(jobId);
+
+    if (result.success && result.data != null) {
+      final List<dynamic> list = result.data!['data'] as List<dynamic>? ?? [];
+      setState(() {
+        _applicants = list.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _error = result.error ?? 'Failed to load applicants.';
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -65,15 +79,7 @@ class JobApplicantsScreen extends StatelessWidget {
           children: [
             _buildJobHeader(),
             Expanded(
-              child: ListView.builder(
-                padding: EdgeInsets.all(24.w),
-                physics: const BouncingScrollPhysics(),
-                itemCount: applicants.length,
-                itemBuilder: (context, index) {
-                  final worker = applicants[index];
-                  return _buildApplicantCard(context, worker);
-                },
-              ),
+              child: _buildContent(),
             ),
           ],
         ),
@@ -81,7 +87,68 @@ class JobApplicantsScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildContent() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primaryPurple),
+      );
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(_error!, style: GoogleFonts.poppins(color: Colors.red)),
+            SizedBox(height: 12.h),
+            ElevatedButton(
+              onPressed: _loadApplicants,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_applicants.isEmpty) {
+      return Center(
+        child: Text(
+          'No applicants yet.',
+          style: GoogleFonts.poppins(color: AppColors.textLightGray, fontSize: 14.sp),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadApplicants,
+      color: AppColors.primaryPurple,
+      child: ListView.builder(
+        padding: EdgeInsets.all(24.w),
+        physics: const BouncingScrollPhysics(),
+        itemCount: _applicants.length,
+        itemBuilder: (context, index) {
+          final app = _applicants[index];
+          return _buildApplicantCard(context, app);
+        },
+      ),
+    );
+  }
+
   Widget _buildJobHeader() {
+    final wage = widget.job['salary'] ?? widget.job['wage'] ?? 'N/A';
+    final isActive = widget.job['isActive'] as bool? ?? true;
+
+    // Location formatting
+    String locText = 'Machilipatnam, Krishna District';
+    final loc = widget.job['location'] as Map?;
+    if (loc != null) {
+      final state = loc['state'] ?? '';
+      final dist = loc['district'] ?? '';
+      final mandal = loc['mandal'] ?? '';
+      final village = loc['village'] ?? '';
+      locText = [village, mandal, dist, state].where((s) => s.isNotEmpty).join(', ');
+    }
+
     return Container(
       padding: EdgeInsets.all(24.w),
       color: const Color(0xFFF9FAFB),
@@ -93,21 +160,21 @@ class JobApplicantsScreen extends StatelessWidget {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8F5E9),
+                  color: isActive ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE),
                   borderRadius: BorderRadius.circular(8.r),
                 ),
                 child: Text(
-                  'ACTIVE',
+                  isActive ? 'ACTIVE' : 'CLOSED',
                   style: GoogleFonts.poppins(
                     fontSize: 10.sp,
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF2E7D32),
+                    color: isActive ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
                   ),
                 ),
               ),
               const Spacer(),
               Text(
-                'Rs. ${job['wage']}',
+                'Rs. $wage',
                 style: GoogleFonts.poppins(
                   fontSize: 14.sp,
                   fontWeight: FontWeight.bold,
@@ -118,7 +185,7 @@ class JobApplicantsScreen extends StatelessWidget {
           ),
           SizedBox(height: 12.h),
           Text(
-            job['title'],
+            widget.job['title'] ?? 'Title',
             style: GoogleFonts.poppins(
               fontSize: 20.sp,
               fontWeight: FontWeight.bold,
@@ -127,7 +194,7 @@ class JobApplicantsScreen extends StatelessWidget {
           ),
           SizedBox(height: 4.h),
           Text(
-            'Machilipatnam, Krishna District',
+            locText,
             style: GoogleFonts.poppins(
               fontSize: 14.sp,
               color: AppColors.textLightGray,
@@ -138,19 +205,25 @@ class JobApplicantsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildApplicantCard(BuildContext context, Map<String, dynamic> worker) {
+  Widget _buildApplicantCard(BuildContext context, Map<String, dynamic> app) {
+    final worker = app['worker'] as Map<String, dynamic>? ?? {};
+    final name = worker['name'] ?? 'Unknown';
+    final skill = worker['primarySkill'] ?? 'General Labour';
+    final photo = worker['profilePhoto'] as String? ?? 'https://i.pravatar.cc/150?u=$name';
+
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => ApplicantDetailsScreen(
-              isWork: isWork,
-              applicant: worker,
-              job: job,
+              isWork: widget.isWork,
+              applicant: app, // passes application object (includes worker and status)
+              job: widget.job,
             ),
           ),
         );
+        _loadApplicants(); // reload list in case status changed in details screen
       },
       child: Container(
         margin: EdgeInsets.only(bottom: 16.h),
@@ -170,7 +243,7 @@ class JobApplicantsScreen extends StatelessWidget {
         child: Row(
           children: [
             PremiumImage(
-              imageUrl: worker['avatar'],
+              imageUrl: photo,
               width: 56.r,
               height: 56.r,
               isAvatar: true,
@@ -181,7 +254,7 @@ class JobApplicantsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    worker['name'],
+                    name,
                     style: GoogleFonts.poppins(
                       fontSize: 16.sp,
                       fontWeight: FontWeight.bold,
@@ -189,7 +262,7 @@ class JobApplicantsScreen extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    worker['skill'],
+                    skill,
                     style: GoogleFonts.poppins(
                       fontSize: 13.sp,
                       color: AppColors.textLightGray,

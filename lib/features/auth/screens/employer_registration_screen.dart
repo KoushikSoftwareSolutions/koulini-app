@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/auth_state.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import 'employer_location_screen.dart';
@@ -323,6 +325,21 @@ class _EmployerRegistrationScreenState extends State<EmployerRegistrationScreen>
       padding: EdgeInsets.all(24.w),
       child: ElevatedButton(
         onPressed: isEnabled ? () {
+          final age = int.tryParse(_ageController.text.trim());
+
+          final authState = Provider.of<AuthState>(context, listen: false);
+          authState.pendingBusinessName = _businessNameController.text.trim();
+          authState.pendingOwnerName = _ownerNameController.text.trim();
+          authState.pendingOwnerAge = age;
+          authState.pendingOwnerGender = _selectedGender;
+          authState.pendingEmail = _emailController.text.trim().isNotEmpty 
+              ? _emailController.text.trim() 
+              : null;
+          authState.pendingBusinessType = _selectedBusinessType;
+          authState.pendingCustomBusinessType = _selectedBusinessType == 'Other' 
+              ? _otherBusinessTypeController.text.trim() 
+              : null;
+
           Navigator.push(
             context,
             PageRouteBuilder(

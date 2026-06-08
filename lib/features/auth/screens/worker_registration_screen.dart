@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/auth_state.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../widgets/gender_selector.dart';
@@ -257,6 +259,40 @@ class _WorkerRegistrationScreenState extends State<WorkerRegistrationScreen> {
       ),
       child: ElevatedButton(
         onPressed: () {
+          final name = _nameController.text.trim();
+          final ageStr = _ageController.text.trim();
+          final age = int.tryParse(ageStr);
+
+          if (name.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please enter your full name'),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            return;
+          }
+          if (age == null || age <= 0) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please enter a valid age'),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            return;
+          }
+
+          // Save pending details to AuthState
+          final authState = Provider.of<AuthState>(context, listen: false);
+          authState.pendingName = name;
+          authState.pendingAge = age;
+          authState.pendingGender = _selectedGender;
+          authState.pendingAadhaar = _aadhaarController.text.trim().isNotEmpty 
+              ? _aadhaarController.text.trim() 
+              : null;
+
           Navigator.push(
             context,
             PageRouteBuilder(

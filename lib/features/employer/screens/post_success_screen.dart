@@ -129,31 +129,39 @@ class PostSuccessScreen extends StatelessWidget {
                             color: AppColors.textLightGray,
                           ),
                         ),
-                        GestureDetector(
-                          onTap: () {
-                            Clipboard.setData(ClipboardData(text: shareUrl));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Link copied to clipboard!')),
-                            );
-                          },
-                          child: Row(
-                            children: [
-                              Text(
-                                shareUrl,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13.sp,
-                                  color: AppColors.primaryPurple,
-                                  fontWeight: FontWeight.w600,
-                                  decoration: TextDecoration.underline,
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Clipboard.setData(ClipboardData(text: shareUrl));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Link copied to clipboard!')),
+                              );
+                            },
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    shareUrl,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 13.sp,
+                                      color: AppColors.primaryPurple,
+                                      fontWeight: FontWeight.w600,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
                                 ),
-                              ),
-                              SizedBox(width: 4.w),
-                              Icon(
-                                Icons.copy_rounded,
-                                size: 14.sp,
-                                color: AppColors.primaryPurple,
-                              ),
-                            ],
+                                SizedBox(width: 4.w),
+                                Icon(
+                                  Icons.copy_rounded,
+                                  size: 14.sp,
+                                  color: AppColors.primaryPurple,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],

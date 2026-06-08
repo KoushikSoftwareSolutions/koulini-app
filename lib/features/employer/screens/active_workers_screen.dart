@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../core/services/application_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/premium_image.dart';
@@ -14,25 +16,44 @@ class ActiveWorkersScreen extends StatefulWidget {
 }
 
 class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
-  // Mock data for currently hired workers
-  final List<Map<String, dynamic>> _activeHires = [
-    {
-      'name': 'Manoj Kumar',
-      'skill': 'Masonry Work',
-      'job': 'House Construction',
-      'status': 'Work in Progress',
-      'avatar': 'https://i.pravatar.cc/150?u=manoj',
-      'isCompleted': false,
-    },
-    {
-      'name': 'Suresh V.',
-      'skill': 'Wall Painting',
-      'job': 'Office Renovation',
-      'status': 'Work in Progress',
-      'avatar': 'https://i.pravatar.cc/150?u=suresh',
-      'isCompleted': false,
-    },
-  ];
+  List<dynamic> _activeHires = [];
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchActiveWorkers();
+  }
+
+  Future<void> _fetchActiveWorkers() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final result = await ApplicationService.instance.getEmployerApplications();
+
+    if (!mounted) return;
+
+    if (result.success && result.data != null) {
+      final list = result.data!['data'] as List<dynamic>? ?? [];
+      // Filter for approved or completed applications
+      final activeList = list.where((app) => 
+        app['status'] == 'Approved' || app['status'] == 'Completed'
+      ).toList();
+      setState(() {
+        _activeHires = activeList;
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _errorMessage = result.error ?? 'Failed to load active workers.';
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,16 +64,7 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
           children: [
             _buildHeader(),
             Expanded(
-              child: _activeHires.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: EdgeInsets.all(24.w),
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: _activeHires.length,
-                      itemBuilder: (context, index) {
-                        return _buildActiveWorkerCard(_activeHires[index], index);
-                      },
-                    ),
+              child: _buildBody(),
             ),
           ],
         ),
@@ -86,35 +98,109 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.engineering_outlined, size: 64.sp, color: AppColors.borderGray),
-          SizedBox(height: 16.h),
-          Text(
-            'No active workers found',
-            style: GoogleFonts.poppins(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textGray,
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryPurple),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline_rounded, size: 64.sp, color: Colors.redAccent),
+            SizedBox(height: 16.h),
+            Text(
+              _errorMessage!,
+              style: GoogleFonts.poppins(
+                fontSize: 16.sp,
+                color: AppColors.textGray,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: 16.h),
+            ElevatedButton(
+              onPressed: _fetchActiveWorkers,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryPurple,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_activeHires.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _fetchActiveWorkers,
+        color: AppColors.primaryPurple,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.6,
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.engineering_outlined, size: 64.sp, color: AppColors.borderGray),
+                SizedBox(height: 16.h),
+                Text(
+                  'No active workers found',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textGray,
+                  ),
+                ),
+                SizedBox(height: 8.h),
+                Text(
+                  'Start hiring to manage your crew here.',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14.sp,
+                    color: AppColors.textLightGray,
+                  ),
+                ),
+              ],
             ),
           ),
-          SizedBox(height: 8.h),
-          Text(
-            'Start hiring to manage your crew here.',
-            style: GoogleFonts.poppins(
-              fontSize: 14.sp,
-              color: AppColors.textLightGray,
-            ),
-          ),
-        ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchActiveWorkers,
+      color: AppColors.primaryPurple,
+      child: ListView.builder(
+        padding: EdgeInsets.all(24.w),
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        itemCount: _activeHires.length,
+        itemBuilder: (context, index) {
+          return _buildActiveWorkerCard(_activeHires[index], index);
+        },
       ),
     );
   }
 
-  Widget _buildActiveWorkerCard(Map<String, dynamic> hire, int index) {
+  Widget _buildActiveWorkerCard(dynamic item, int index) {
+    final worker = item['worker'] as Map<String, dynamic>? ?? {};
+    final job = item['job'] as Map<String, dynamic>? ?? {};
+
+    final String name = worker['name'] ?? 'Unknown';
+    final String skill = worker['primarySkill'] ?? job['category'] ?? 'Worker';
+    final String jobTitle = job['title'] ?? 'Job';
+    final bool isCompleted = item['status'] == 'Completed';
+    final String statusStr = isCompleted ? 'Job Completed' : 'Work in Progress';
+
+    final avatar = (worker['profilePhoto'] != null && worker['profilePhoto'].toString().isNotEmpty)
+        ? worker['profilePhoto'].toString()
+        : 'https://i.pravatar.cc/150?u=${worker['_id'] ?? name}';
+
     return Container(
       margin: EdgeInsets.only(bottom: 24.h),
       padding: EdgeInsets.all(20.w),
@@ -124,7 +210,7 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
         border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.1)),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x08000000), // Updated to opaque for const
+            color: Color(0x08000000),
             blurRadius: 10,
             offset: Offset(0, 4),
           ),
@@ -135,7 +221,7 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
           Row(
             children: [
               PremiumImage(
-                imageUrl: hire['avatar'],
+                imageUrl: avatar,
                 width: 56.r,
                 height: 56.r,
                 isAvatar: true,
@@ -146,7 +232,7 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      hire['name'],
+                      name,
                       style: GoogleFonts.poppins(
                         fontSize: 17.sp,
                         fontWeight: FontWeight.bold,
@@ -154,7 +240,7 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
                       ),
                     ),
                     Text(
-                      '${hire['skill']} • ${hire['job']}',
+                      '$skill • $jobTitle',
                       style: GoogleFonts.poppins(
                         fontSize: 13.sp,
                         color: AppColors.textLightGray,
@@ -163,7 +249,7 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
                   ],
                 ),
               ),
-              _buildInteractionButtons(hire),
+              _buildInteractionButtons(worker, name, avatar),
             ],
           ),
           SizedBox(height: 20.h),
@@ -178,22 +264,22 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
                     width: 8.w,
                     height: 8.w,
                     decoration: BoxDecoration(
-                      color: hire['isCompleted'] ? Colors.green : Colors.orange,
+                      color: isCompleted ? Colors.green : Colors.orange,
                       shape: BoxShape.circle,
                     ),
                   ),
                   SizedBox(width: 8.w),
                   Text(
-                    hire['isCompleted'] ? 'Job Completed' : hire['status'],
+                    statusStr,
                     style: GoogleFonts.poppins(
                       fontSize: 13.sp,
                       fontWeight: FontWeight.w600,
-                      color: hire['isCompleted'] ? Colors.green : Colors.orange,
+                      color: isCompleted ? Colors.green : Colors.orange,
                     ),
                   ),
                 ],
               ),
-              if (!hire['isCompleted'])
+              if (!isCompleted)
                 TextButton(
                   onPressed: () => _showCompletionDialog(index),
                   style: TextButton.styleFrom(
@@ -217,16 +303,33 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
     );
   }
 
-  Widget _buildInteractionButtons(Map<String, dynamic> worker) {
+  Widget _buildInteractionButtons(Map<String, dynamic> worker, String name, String avatar) {
     return Row(
       children: [
-        _buildSmallIconBtn(Icons.phone_in_talk_rounded, Colors.green, () {}),
+        _buildSmallIconBtn(Icons.phone_in_talk_rounded, Colors.green, () {
+          final phone = worker['phone'] ?? '';
+          if (phone.isNotEmpty) {
+            Clipboard.setData(ClipboardData(text: phone));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Phone number $phone copied to clipboard!'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }),
         SizedBox(width: 12.w),
         _buildSmallIconBtn(Icons.chat_bubble_rounded, AppColors.primaryPurple, () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => ChatDetailScreen(worker: worker),
+              builder: (context) => ChatDetailScreen(
+                worker: {
+                  'name': name,
+                  'avatar': avatar,
+                  ...worker,
+                },
+              ),
             ),
           );
         }),
@@ -249,6 +352,10 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
   }
 
   void _showCompletionDialog(int index) {
+    final item = _activeHires[index];
+    final worker = item['worker'] as Map<String, dynamic>? ?? {};
+    final String name = worker['name'] ?? 'Unknown';
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -268,7 +375,7 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
               ),
               SizedBox(height: 12.h),
               Text(
-                'Are you sure the work has been finished by ${_activeHires[index]['name']}?',
+                'Are you sure the work has been finished by $name?',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 14.sp,
@@ -300,9 +407,6 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        setState(() {
-                          _activeHires[index]['isCompleted'] = true;
-                        });
                         Navigator.pop(context);
                         _showRatingDialog(index);
                       },
@@ -332,7 +436,14 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
   }
 
   void _showRatingDialog(int index) {
+    final item = _activeHires[index];
+    final worker = item['worker'] as Map<String, dynamic>? ?? {};
+    final String name = worker['name'] ?? 'Unknown';
+    final String applicationId = item['_id']?.toString() ?? '';
+
     int selectedStars = 4;
+    final commentController = TextEditingController();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -360,7 +471,7 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
               ),
               SizedBox(height: 32.h),
               Text(
-                'Rate ${_activeHires[index]['name']}',
+                'Rate $name',
                 style: GoogleFonts.poppins(
                   fontSize: 22.sp,
                   fontWeight: FontWeight.bold,
@@ -395,6 +506,7 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
               ),
               SizedBox(height: 32.h),
               TextField(
+                controller: commentController,
                 maxLines: 3,
                 decoration: InputDecoration(
                   hintText: 'Add a comment (Optional)',
@@ -410,15 +522,43 @@ class _ActiveWorkersScreenState extends State<ActiveWorkersScreen> {
               ),
               SizedBox(height: 32.h),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Thank you for rating ${_activeHires[index]['name']}!'),
-                      backgroundColor: AppColors.primaryPurple,
-                      behavior: SnackBarBehavior.floating,
-                    ),
+                  
+                  if (!mounted) return;
+                  setState(() {
+                    _isLoading = true;
+                  });
+
+                  final result = await ApplicationService.instance.completeAndRateApplication(
+                    applicationId: applicationId,
+                    rating: selectedStars,
+                    comment: commentController.text.trim().isNotEmpty ? commentController.text.trim() : null,
                   );
+
+                  if (!mounted) return;
+
+                  if (result.success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Thank you for rating $name!'),
+                        backgroundColor: AppColors.primaryPurple,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                    _fetchActiveWorkers(); // Reload the list
+                  } else {
+                    setState(() {
+                      _isLoading = false;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(result.error ?? 'Failed to complete work and submit rating.'),
+                        backgroundColor: Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryPurple,

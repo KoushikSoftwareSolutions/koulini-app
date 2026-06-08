@@ -128,38 +128,41 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         opacity: 0.15,
                         child: Container(
                           width: 140.w,
-                          padding: EdgeInsets.symmetric(vertical: 8.h),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 36.w,
-                                height: 36.w,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primaryPurple,
-                                  borderRadius: BorderRadius.circular(10.r),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    'K',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 22.sp,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
+                          padding: EdgeInsets.symmetric(vertical: 5.h),
+                          child: SingleChildScrollView(
+                            physics: const NeverScrollableScrollPhysics(),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 34.w,
+                                  height: 34.w,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryPurple,
+                                    borderRadius: BorderRadius.circular(10.r),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'K',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 22.sp,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              SizedBox(height: 4.h),
-                              Text(
-                                'Koulini',
-                                style: AppTextStyles.logoTitle.copyWith(
-                                  fontSize: 15.sp,
-                                  color: Colors.white,
-                                  letterSpacing: 0.5,
+                                SizedBox(height: 2.h),
+                                Text(
+                                  'Koulini',
+                                  style: AppTextStyles.logoTitle.copyWith(
+                                    fontSize: 15.sp,
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),

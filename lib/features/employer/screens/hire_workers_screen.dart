@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:async';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/premium_image.dart';
+import '../../../core/services/worker_service.dart';
 import '../widgets/filter_chip_group.dart';
 import 'worker_view_screen.dart';
 
@@ -22,18 +24,75 @@ class _HireWorkersScreenState extends State<HireWorkersScreen> {
 
   // Search state
   final TextEditingController _searchController = TextEditingController();
+  
+  List<dynamic> _workers = [];
+  bool _isLoading = false;
+  String? _errorMessage;
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() {
-      setState(() {}); // Rebuild to filter list as users type
+    _searchController.addListener(_onSearchChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchWorkers();
     });
+  }
+
+  void _onSearchChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      _fetchWorkers();
+    });
+  }
+
+  Future<void> _fetchWorkers() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    String? backendExp;
+    if (_selectedExperience == '0-2 yrs') {
+      backendExp = '1-2 Years';
+    } else if (_selectedExperience == '2-5 yrs') {
+      backendExp = '2-5 Years';
+    } else if (_selectedExperience == '5+ yrs') {
+      // Backend expects '5-10 Years' or '10+ Years' (we can default query to '5-10 Years' or search all).
+      // Let's pass '5-10 Years' as a matching backend enum.
+      backendExp = '5-10 Years';
+    }
+
+    final skillParam = _selectedSkills.isNotEmpty ? _selectedSkills.first : null;
+
+    final result = await WorkerService.instance.getWorkers(
+      search: _searchController.text.trim(),
+      skill: skillParam,
+      experienceLevel: backendExp,
+      minRating: _minRating > 0 ? _minRating : null,
+    );
+
+    if (!mounted) return;
+
+    if (result.success && result.data != null) {
+      setState(() {
+        _workers = result.data!['data'] ?? [];
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _errorMessage = result.error ?? 'Failed to load workers';
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
@@ -154,55 +213,51 @@ class _HireWorkersScreenState extends State<HireWorkersScreen> {
             _selectedSkills.clear();
             _selectedSkills.addAll(skills);
           });
+          _fetchWorkers();
         },
       ),
     );
   }
 
   Widget _buildWorkerList(BuildContext context) {
-    // Mock data for workers
-    final allWorkers = [
-      {
-        'name': 'Manoj Kumar',
-        'skill': 'Mason',
-        'rating': '4.8',
-        'experience': '2 yrs',
-        'jobs': '15',
-        'avatar': 'https://i.pravatar.cc/150?u=manoj',
-      },
-      {
-        'name': 'Suresh V.',
-        'skill': 'Painter',
-        'rating': '4.5',
-        'experience': '5 yrs',
-        'jobs': '42',
-        'avatar': 'https://i.pravatar.cc/150?u=suresh',
-      },
-      {
-        'name': 'Rajesh Singh',
-        'skill': 'Electrician',
-        'rating': '4.9',
-        'experience': '3 yrs',
-        'jobs': '28',
-        'avatar': 'https://i.pravatar.cc/150?u=rajesh',
-      },
-    ];
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryPurple),
+        ),
+      );
+    }
 
-    // Complex filtering logic: Search + Filters
-    final filteredWorkers = allWorkers.where((worker) {
-      final query = _searchController.text.toLowerCase();
-      final nameMatches = worker['name']!.toLowerCase().contains(query);
-      final skillMatches = worker['skill']!.toLowerCase().contains(query);
-      final searchMatch = query.isEmpty || nameMatches || skillMatches;
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline_rounded, size: 64.sp, color: Colors.redAccent),
+            SizedBox(height: 16.h),
+            Text(
+              _errorMessage!,
+              style: GoogleFonts.poppins(
+                fontSize: 16.sp,
+                color: AppColors.textGray,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: 16.h),
+            ElevatedButton(
+              onPressed: _fetchWorkers,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryPurple,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
 
-      final expMatch = _selectedExperience == 'All' || worker['experience']!.contains(_selectedExperience.split(' ')[0]);
-      final ratingMatch = double.parse(worker['rating']!) >= _minRating;
-      final skillFilterMatch = _selectedSkills.isEmpty || _selectedSkills.contains(worker['skill']);
-
-      return searchMatch && expMatch && ratingMatch && skillFilterMatch;
-    }).toList();
-
-    if (filteredWorkers.isEmpty) {
+    if (_workers.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -222,17 +277,31 @@ class _HireWorkersScreenState extends State<HireWorkersScreen> {
       );
     }
 
-    return ListView.builder(
-      padding: EdgeInsets.all(24.w),
-      physics: const BouncingScrollPhysics(),
-      itemCount: filteredWorkers.length,
-      itemBuilder: (context, index) {
-        return _buildWorkerCard(context, filteredWorkers[index]);
-      },
+    return RefreshIndicator(
+      onRefresh: _fetchWorkers,
+      color: AppColors.primaryPurple,
+      child: ListView.builder(
+        padding: EdgeInsets.all(24.w),
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        itemCount: _workers.length,
+        itemBuilder: (context, index) {
+          return _buildWorkerCard(context, _workers[index]);
+        },
+      ),
     );
   }
 
   Widget _buildWorkerCard(BuildContext context, Map<String, dynamic> worker) {
+    final name = worker['name'] ?? 'Unknown';
+    final skill = worker['primarySkill'] ?? worker['customSkill'] ?? 'General Worker';
+    final ratingVal = worker['rating'] ?? 0.0;
+    final rating = ratingVal is num ? ratingVal.toStringAsFixed(1) : ratingVal.toString();
+    final exp = worker['experienceLevel'] ?? 'No Experience';
+    final jobs = (worker['jobsCompleted'] ?? 0).toString();
+    final avatar = (worker['profilePhoto'] != null && worker['profilePhoto'].toString().isNotEmpty)
+        ? worker['profilePhoto'].toString()
+        : 'https://i.pravatar.cc/150?u=${worker['_id'] ?? name}';
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -260,7 +329,7 @@ class _HireWorkersScreenState extends State<HireWorkersScreen> {
         child: Row(
           children: [
             PremiumImage(
-              imageUrl: worker['avatar']!,
+              imageUrl: avatar,
               width: 64.r,
               height: 64.r,
               isAvatar: true,
@@ -274,7 +343,7 @@ class _HireWorkersScreenState extends State<HireWorkersScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        worker['name']!,
+                        name,
                         style: GoogleFonts.poppins(
                           fontSize: 16.sp,
                           fontWeight: FontWeight.bold,
@@ -292,7 +361,7 @@ class _HireWorkersScreenState extends State<HireWorkersScreen> {
                             Icon(Icons.star_rounded, size: 14.sp, color: const Color(0xFFFBC02D)),
                             SizedBox(width: 4.w),
                             Text(
-                              worker['rating']!,
+                              rating,
                               style: GoogleFonts.poppins(
                                 fontSize: 12.sp,
                                 fontWeight: FontWeight.bold,
@@ -305,7 +374,7 @@ class _HireWorkersScreenState extends State<HireWorkersScreen> {
                     ],
                   ),
                   Text(
-                    worker['skill']!,
+                    skill,
                     style: GoogleFonts.poppins(
                       fontSize: 13.sp,
                       color: AppColors.textLightGray,
@@ -314,9 +383,9 @@ class _HireWorkersScreenState extends State<HireWorkersScreen> {
                   SizedBox(height: 12.h),
                   Row(
                     children: [
-                      _buildWorkerBadge('${worker['experience']} Exp'),
+                      _buildWorkerBadge('$exp Exp'),
                       SizedBox(width: 8.w),
-                      _buildWorkerBadge('${worker['jobs']} Jobs Completed'),
+                      _buildWorkerBadge('$jobs Jobs Completed'),
                     ],
                   ),
                 ],

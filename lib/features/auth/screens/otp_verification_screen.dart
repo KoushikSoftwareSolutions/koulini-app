@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pinput/pinput.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/auth_state.dart';
+import '../../../main_wrapper.dart';
+import '../../employer/layout/employer_main_wrapper.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import 'role_selection_screen.dart';
@@ -53,8 +57,73 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     });
   }
 
+  Future<void> _handleVerifyOtp(BuildContext context) async {
+    final code = _otpController.text.trim();
+    if (code.length != 6) return;
+
+    final authState = Provider.of<AuthState>(context, listen: false);
+    final success = await authState.verifyOtp(
+      phone: widget.phoneNumber,
+      code: code,
+    );
+
+    if (success) {
+      if (mounted) {
+        if (authState.isRegistered) {
+          if (authState.role == 'Employer') {
+            Navigator.pushAndRemoveUntil(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) => const EmployerMainWrapper(),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
+              ),
+              (route) => false,
+            );
+          } else {
+            Navigator.pushAndRemoveUntil(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) => const MainWrapper(),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
+              ),
+              (route) => false,
+            );
+          }
+        } else {
+          Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => const RoleSelectionScreen(),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(1, 0),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                );
+              },
+            ),
+          );
+        }
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authState.error ?? 'Invalid OTP code.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final authState = Provider.of<AuthState>(context);
+
     // Customizing Pinput (Matching Design)
     final defaultPinTheme = PinTheme(
       width: 48.w,
@@ -158,7 +227,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                           });
                         },
                         onCompleted: (pin) {
-                          // Auto-verify logic can go here
+                          _handleVerifyOtp(context);
                         },
                       ),
                     ),
@@ -203,23 +272,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       child: ElevatedButton(
-                        onPressed: _isButtonEnabled ? () {
-                          Navigator.push(
-                            context,
-                            PageRouteBuilder(
-                              pageBuilder: (context, animation, secondaryAnimation) => const RoleSelectionScreen(),
-                              transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                return SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: const Offset(1, 0),
-                                    end: Offset.zero,
-                                  ).animate(animation),
-                                  child: child,
-                                );
-                              },
-                            ),
-                          );
-                        } : null,
+                        onPressed: (_isButtonEnabled && !authState.isLoading) ? () => _handleVerifyOtp(context) : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryPurple,
                           disabledBackgroundColor: AppColors.primaryPurple.withValues(alpha: 0.2),
@@ -231,13 +284,22 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                           ),
                           elevation: _isButtonEnabled ? 8 : 0,
                         ),
-                        child: Text(
-                          'Verify OTP',
-                          style: GoogleFonts.poppins(
-                            fontSize: 18.sp,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        child: authState.isLoading
+                            ? SizedBox(
+                                height: 24.h,
+                                width: 24.h,
+                                child: const CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : Text(
+                                'Verify OTP',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 18.sp,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     ),
                     SizedBox(height: 40.h),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/auth_state.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../widgets/language_card.dart';
@@ -161,6 +163,17 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                 ? SizedBox(height: 56.h)
                 : ElevatedButton(
                     onPressed: () {
+                      final codeMap = {
+                        'English': 'en',
+                        'Telugu': 'te',
+                        'Hindi': 'hi',
+                        'Tamil': 'ta',
+                        'Malayalam': 'ml',
+                        'Kannada': 'kn',
+                      };
+                      final langCode = codeMap[selectedLanguage] ?? 'en';
+                      Provider.of<AuthState>(context, listen: false).language = langCode;
+
                       if (widget.isFromSettings) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(

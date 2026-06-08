@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../core/services/application_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 
@@ -17,36 +19,41 @@ class MyApplicationsScreen extends StatefulWidget {
 }
 
 class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
-  final List<String> _filters = ['All (8)', 'Pending', 'Approved', 'Rejected'];
+  final List<String> _filterKeys = ['All', 'Pending', 'Approved', 'Rejected', 'Completed'];
   int _activeFilterIndex = 0;
+  List<dynamic> _applications = [];
+  bool _isLoading = false;
+  String? _errorMessage;
 
-  final List<Map<String, dynamic>> _mockApplications = [
-    {
-      'title': 'Mason Required',
-      'company': 'Vijay Constructions',
-      'time': 'Applied 2 days ago',
-      'status': 'Pending',
-      'statusColor': const Color(0xFFFF9800),
-      'statusBg': const Color(0xFFFFF3E0),
-    },
-    {
-      'title': 'Farm Labour',
-      'company': 'Reddys Farm',
-      'time': 'Applied 5 days ago',
-      'status': 'Approved',
-      'statusColor': const Color(0xFF4CAF50),
-      'statusBg': const Color(0xFFE8F5E9),
-      'isApproved': true,
-    },
-    {
-      'title': 'Shop Assistant',
-      'company': 'Lalitha Stores',
-      'time': 'Applied 1 week ago',
-      'status': 'Rejected',
-      'statusColor': const Color(0xFFF44336),
-      'statusBg': const Color(0xFFFFEBEE),
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchApplications();
+  }
+
+  Future<void> _fetchApplications() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final result = await ApplicationService.instance.getWorkerApplications();
+
+    if (!mounted) return;
+
+    if (result.success && result.data != null) {
+      setState(() {
+        _applications = result.data!['data'] as List<dynamic>? ?? [];
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _errorMessage = result.error ?? 'Failed to load applications.';
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +75,7 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
             ),
             _buildFilterTabs(),
             Expanded(
-              child: _buildApplicationList(),
+              child: _buildBody(),
             ),
           ],
         ),
@@ -77,12 +84,20 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
   }
 
   Widget _buildFilterTabs() {
+    final filters = [
+      'All (${_applications.length})',
+      'Pending',
+      'Approved',
+      'Rejected',
+      'Completed'
+    ];
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       physics: const BouncingScrollPhysics(),
       padding: EdgeInsets.symmetric(horizontal: 24.w),
       child: Row(
-        children: List.generate(_filters.length, (index) {
+        children: List.generate(filters.length, (index) {
           final isSelected = _activeFilterIndex == index;
           return Padding(
             padding: EdgeInsets.only(right: 12.w),
@@ -100,7 +115,7 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
                   ),
                 ),
                 child: Text(
-                  _filters[index],
+                  filters[index],
                   style: GoogleFonts.poppins(
                     fontSize: 14.sp,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
@@ -115,20 +130,92 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
     );
   }
 
-  Widget _buildApplicationList() {
-    // Filter logic based on status
-    final filteredApps = _activeFilterIndex == 0 
-        ? _mockApplications 
-        : _mockApplications.where((app) => 
-            app['status'].toLowerCase() == _filters[_activeFilterIndex].toLowerCase()).toList();
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryPurple),
+        ),
+      );
+    }
 
-    return ListView.builder(
-      physics: const BouncingScrollPhysics(),
-      padding: EdgeInsets.all(24.w),
-      itemCount: filteredApps.length,
-      itemBuilder: (context, index) {
-        return _buildApplicationCard(filteredApps[index]);
-      },
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline_rounded, size: 64.sp, color: Colors.redAccent),
+            SizedBox(height: 16.h),
+            Text(
+              _errorMessage!,
+              style: GoogleFonts.poppins(
+                fontSize: 16.sp,
+                color: AppColors.textGray,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: 16.h),
+            ElevatedButton(
+              onPressed: _fetchApplications,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryPurple,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Filter logic based on key
+    final filteredApps = _activeFilterIndex == 0 
+        ? _applications 
+        : _applications.where((app) => 
+            app['status']?.toString().toLowerCase() == _filterKeys[_activeFilterIndex].toLowerCase()).toList();
+
+    if (filteredApps.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _fetchApplications,
+        color: AppColors.primaryPurple,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            Container(
+              height: MediaQuery.of(context).size.height * 0.5,
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.history_toggle_off_rounded, size: 64.sp, color: AppColors.borderGray),
+                  SizedBox(height: 16.h),
+                  Text(
+                    'No applications found',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16.sp,
+                      color: AppColors.textGray,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchApplications,
+      color: AppColors.primaryPurple,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        padding: EdgeInsets.all(24.w),
+        itemCount: filteredApps.length,
+        itemBuilder: (context, index) {
+          return _buildApplicationCard(filteredApps[index]);
+        },
+      ),
     );
   }
 
@@ -136,7 +223,7 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
     Widget targetScreen;
     if (app['status'] == 'Pending') {
       targetScreen = PendingApplicationDetailsScreen(application: app);
-    } else if (app['status'] == 'Approved') {
+    } else if (app['status'] == 'Approved' || app['status'] == 'Completed') {
       targetScreen = ApprovedApplicationDetailsScreen(application: app);
     } else {
       targetScreen = RejectedApplicationDetailsScreen(application: app);
@@ -159,112 +246,157 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
     );
   }
 
-  Widget _buildApplicationCard(Map<String, dynamic> app) {
-    final isApproved = app['isApproved'] ?? false;
+  Widget _buildApplicationCard(dynamic item) {
+    final job = item['job'] as Map<String, dynamic>? ?? {};
+    final status = item['status']?.toString() ?? 'Pending';
+    final isApproved = status == 'Approved';
+    final company = job['companyName'] ?? 'Vijay Constructions';
+    final title = job['title'] ?? 'Worker Required';
+    
+    DateTime? appliedDate;
+    if (item['appliedAt'] != null) {
+      appliedDate = DateTime.tryParse(item['appliedAt'].toString());
+    }
+    
+    final diffDays = appliedDate != null ? DateTime.now().difference(appliedDate).inDays : 0;
+    final timeStr = diffDays == 0 
+        ? 'Applied today' 
+        : (diffDays == 1 ? 'Applied 1 day ago' : 'Applied $diffDays days ago');
+
+    Color statusColor = const Color(0xFFFF9800);
+    Color statusBg = const Color(0xFFFFF3E0);
+    if (status == 'Approved') {
+      statusColor = const Color(0xFF4CAF50);
+      statusBg = const Color(0xFFE8F5E9);
+    } else if (status == 'Rejected') {
+      statusColor = const Color(0xFFF44336);
+      statusBg = const Color(0xFFFFEBEE);
+    } else if (status == 'Completed') {
+      statusColor = const Color(0xFF2196F3);
+      statusBg = const Color(0xFFE3F2FD);
+    }
     
     return GestureDetector(
-      onTap: () => _navigateToDetails(app),
+      onTap: () => _navigateToDetails({
+        '_id': item['_id'],
+        'status': status,
+        'title': title,
+        'company': company,
+        'time': timeStr,
+        ...job,
+      }),
       child: Container(
         margin: EdgeInsets.only(bottom: 20.h),
-      padding: EdgeInsets.all(20.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(
-          color: AppColors.borderGray.withValues(alpha: 0.1),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+        padding: EdgeInsets.all(20.w),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(
+            color: AppColors.borderGray.withValues(alpha: 0.1),
+            width: 1.2,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                app['time'],
-                style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
-                  color: AppColors.textLightGray,
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
-                decoration: BoxDecoration(
-                  color: app['statusBg'],
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-                child: Text(
-                  app['status'],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  timeStr,
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.bold,
-                    color: app['statusColor'],
+                    fontSize: 13.sp,
+                    color: AppColors.textLightGray,
                   ),
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+                  decoration: BoxDecoration(
+                    color: statusBg,
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Text(
+                    status,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.bold,
+                      color: statusColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12.h),
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textBlack,
+              ),
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              company,
+              style: GoogleFonts.poppins(
+                fontSize: 14.sp,
+                color: AppColors.textLightGray,
+              ),
+            ),
+            if (isApproved) ...[
+              SizedBox(height: 20.h),
+              ElevatedButton(
+                onPressed: () => _showContactDetails(context, {
+                  'company': company,
+                  ...job,
+                }),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1BAB4F),
+                  foregroundColor: Colors.white,
+                  minimumSize: Size(double.infinity, 48.h),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  elevation: 0,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        MyApp.userRole == 'Worker' ? "View Business Owner's Contact" : 'View Employer Contact',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                    SizedBox(width: 8.w),
+                    Icon(Icons.arrow_forward_rounded, size: 18.sp),
+                  ],
                 ),
               ),
             ],
-          ),
-          SizedBox(height: 12.h),
-          Text(
-            app['title'],
-            style: GoogleFonts.poppins(
-              fontSize: 18.sp,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textBlack,
-            ),
-          ),
-          SizedBox(height: 4.h),
-          Text(
-            app['company'],
-            style: GoogleFonts.poppins(
-              fontSize: 14.sp,
-              color: AppColors.textLightGray,
-            ),
-          ),
-          if (isApproved) ...[
-            SizedBox(height: 20.h),
-            ElevatedButton(
-              onPressed: () => _showContactDetails(context, app),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1BAB4F), // High-fidelity Green
-                foregroundColor: Colors.white,
-                minimumSize: Size(double.infinity, 48.h),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-                elevation: 0,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    MyApp.userRole == 'Worker' ? "View Business Owner's Contact" : 'View Employer Contact',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(width: 8.w),
-                  Icon(Icons.arrow_forward_rounded, size: 18.sp),
-                ],
-              ),
-            ),
           ],
-        ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-  void _showContactDetails(BuildContext context, Map<String, dynamic> app) {
+  void _showContactDetails(BuildContext context, Map<String, dynamic> job) {
+    final company = job['companyName'] ?? 'Business Owner';
+    final contactPerson = job['contactName'] ?? 'Srikanth Reddy';
+    final phone = job['phone'] ?? '+91 XXXXX XXXXX';
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -294,51 +426,56 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
               children: [
                 Container(
                   padding: EdgeInsets.all(12.w),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8F5E9),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE8F5E9),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.person_rounded, color: const Color(0xFF2E7D32), size: 24.sp),
                 ),
                 SizedBox(width: 16.w),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      MyApp.userRole == 'Worker' ? "Business Owner's Contact" : 'Employer Contact',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14.sp,
-                        color: AppColors.textLightGray,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        MyApp.userRole == 'Worker' ? "Business Owner's Contact" : 'Employer Contact',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14.sp,
+                          color: AppColors.textLightGray,
+                        ),
                       ),
-                    ),
-                    Text(
-                      app['company'],
-                      style: GoogleFonts.poppins(
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textBlack,
+                      Text(
+                        company,
+                        style: GoogleFonts.poppins(
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textBlack,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
             SizedBox(height: 32.h),
-            _buildContactInfoRow(Icons.person_outline_rounded, 'Contact Person', 'Srikanth Reddy'),
+            _buildContactInfoRow(Icons.person_outline_rounded, 'Contact Person', contactPerson),
             SizedBox(height: 20.h),
-            _buildContactInfoRow(Icons.phone_outlined, 'Phone Number', '+91 98765 43210'),
+            _buildContactInfoRow(Icons.phone_outlined, 'Phone Number', phone),
             SizedBox(height: 32.h),
             ElevatedButton(
               onPressed: () {
-                // Call trigger (Mocked)
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Initiating call...'),
-                    backgroundColor: AppColors.primaryPurple,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                if (phone.isNotEmpty) {
+                  Clipboard.setData(ClipboardData(text: phone));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Phone number $phone copied to clipboard!'),
+                      backgroundColor: AppColors.primaryPurple,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1BAB4F),
@@ -370,22 +507,25 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
       children: [
         Icon(icon, size: 20.sp, color: AppColors.textLightGray),
         SizedBox(width: 16.w),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: GoogleFonts.poppins(fontSize: 12.sp, color: AppColors.textLightGray),
-            ),
-            Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 15.sp, 
-                fontWeight: FontWeight.w600, 
-                color: AppColors.textBlack,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.poppins(fontSize: 12.sp, color: AppColors.textLightGray),
               ),
-            ),
-          ],
+              Text(
+                value,
+                style: GoogleFonts.poppins(
+                  fontSize: 15.sp, 
+                  fontWeight: FontWeight.w600, 
+                  color: AppColors.textBlack,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ],
     );

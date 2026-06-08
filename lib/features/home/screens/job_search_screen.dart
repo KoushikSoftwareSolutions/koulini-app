@@ -8,7 +8,8 @@ import 'job_details_screen.dart';
 import 'confirm_application_screen.dart';
 
 class JobSearchScreen extends StatefulWidget {
-  const JobSearchScreen({super.key});
+  final String? initialQuery;
+  const JobSearchScreen({super.key, this.initialQuery});
 
   @override
   State<JobSearchScreen> createState() => _JobSearchScreenState();
@@ -20,6 +21,15 @@ class _JobSearchScreenState extends State<JobSearchScreen> {
   final List<String> _trending = ['Daily Wages', 'Weekly Contract', 'Construction', 'Delivery'];
   
   bool _isSearching = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialQuery != null) {
+      _searchController.text = widget.initialQuery!;
+      _isSearching = true;
+    }
+  }
 
   @override
   void dispose() {

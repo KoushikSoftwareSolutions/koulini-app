@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/auth_state.dart';
+import '../../../core/services/application_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import 'application_success_screen.dart';
 import '../../../../main.dart';
 
-class ConfirmApplicationScreen extends StatelessWidget {
+class ConfirmApplicationScreen extends StatefulWidget {
   final Map<String, dynamic> job;
 
   const ConfirmApplicationScreen({
@@ -15,7 +18,25 @@ class ConfirmApplicationScreen extends StatelessWidget {
   });
 
   @override
+  State<ConfirmApplicationScreen> createState() => _ConfirmApplicationScreenState();
+}
+
+class _ConfirmApplicationScreenState extends State<ConfirmApplicationScreen> {
+  bool _isSubmitting = false;
+
+  @override
   Widget build(BuildContext context) {
+    final authState = Provider.of<AuthState>(context);
+    final profile = authState.profile;
+
+    final String name = profile?['name'] ?? 'Worker';
+    final String skill = profile?['primarySkill'] ?? profile?['customSkill'] ?? 'General Worker';
+    final loc = profile?['location'] as Map<String, dynamic>?;
+    final String location = loc != null
+        ? '${loc['village'] ?? loc['mandal'] ?? ''}, ${loc['district'] ?? ''}'.trim()
+        : 'Krishna, Andhra Pradesh';
+    final String experience = profile?['experienceLevel'] ?? 'No Experience';
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -36,34 +57,40 @@ class ConfirmApplicationScreen extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.all(24.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildCondensedJobCard(),
-                    SizedBox(height: 32.h),
-                    Text(
-                      MyApp.userRole == 'Worker'
-                          ? 'Profile being shared with business owner'
-                          : 'Profile being shared with employer',
-                      style: AppTextStyles.questionTitle.copyWith(
-                        fontSize: 18.sp,
+        child: _isSubmitting
+            ? const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryPurple),
+                ),
+              )
+            : Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: EdgeInsets.all(24.w),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildCondensedJobCard(),
+                          SizedBox(height: 32.h),
+                          Text(
+                            MyApp.userRole == 'Worker'
+                                ? 'Profile being shared with business owner'
+                                : 'Profile being shared with employer',
+                            style: AppTextStyles.questionTitle.copyWith(
+                              fontSize: 18.sp,
+                            ),
+                          ),
+                          SizedBox(height: 16.h),
+                          _buildProfileCard(name, skill, location, experience),
+                        ],
                       ),
                     ),
-                    SizedBox(height: 16.h),
-                    _buildProfileCard(),
-                  ],
-                ),
+                  ),
+                  _buildBottomButton(context),
+                ],
               ),
-            ),
-            _buildBottomButton(context),
-          ],
-        ),
       ),
     );
   }
@@ -78,34 +105,37 @@ class ConfirmApplicationScreen extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Applying for',
-                style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
-                  color: AppColors.textLightGray,
+          Padding(
+            padding: EdgeInsets.only(right: 90.w),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Applying for',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13.sp,
+                    color: AppColors.textLightGray,
+                  ),
                 ),
-              ),
-              SizedBox(height: 4.h),
-              Text(
-                job['title'] ?? 'Mason Required',
-                style: GoogleFonts.poppins(
-                  fontSize: 20.sp,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textBlack,
+                SizedBox(height: 4.h),
+                Text(
+                  widget.job['title'] ?? 'Mason Required',
+                  style: GoogleFonts.poppins(
+                    fontSize: 20.sp,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textBlack,
+                  ),
                 ),
-              ),
-              SizedBox(height: 4.h),
-              Text(
-                '${job['company'] ?? 'Vijay Constructions'}  |  ${job['location'] ?? 'Machilipatnam'}',
-                style: GoogleFonts.poppins(
-                  fontSize: 14.sp,
-                  color: AppColors.textLightGray,
+                SizedBox(height: 4.h),
+                Text(
+                  '${widget.job['company'] ?? 'Vijay Constructions'}  |  ${widget.job['location'] ?? 'Machilipatnam'}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14.sp,
+                    color: AppColors.textLightGray,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           Positioned(
             top: 0,
@@ -117,7 +147,7 @@ class ConfirmApplicationScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10.r),
               ),
               child: Text(
-                'Rs.${job['salary'] ?? '700/day'}',
+                'Rs.${widget.job['salary'] ?? '700/day'}',
                 style: GoogleFonts.poppins(
                   fontSize: 12.sp,
                   fontWeight: FontWeight.bold,
@@ -131,7 +161,7 @@ class ConfirmApplicationScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileCard() {
+  Widget _buildProfileCard(String name, String skill, String location, String experience) {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(20.w),
@@ -152,13 +182,13 @@ class ConfirmApplicationScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildProfileField('Name', 'Ravi Kumar'),
+          _buildProfileField('Name', name),
           _detailDivider(),
-          _buildProfileField('Skills', 'Mason, Tile Work, Plastering'),
+          _buildProfileField('Skills', skill),
           _detailDivider(),
-          _buildProfileField('Location', 'Machilipatnam, Krishna'),
+          _buildProfileField('Location', location),
           _detailDivider(),
-          _buildProfileField('Experience', '4 years'),
+          _buildProfileField('Experience', experience),
           _detailDivider(),
           _buildProfileField('Phone', 'Hidden until approved'),
         ],
@@ -179,12 +209,16 @@ class ConfirmApplicationScreen extends StatelessWidget {
               color: AppColors.textGray.withValues(alpha: 0.6),
             ),
           ),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 14.sp,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textBlack,
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: GoogleFonts.poppins(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textBlack,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -216,14 +250,7 @@ class ConfirmApplicationScreen extends StatelessWidget {
         ],
       ),
       child: ElevatedButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ApplicationSuccessScreen(job: job),
-            ),
-          );
-        },
+        onPressed: _submitApplication,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryPurple,
           foregroundColor: Colors.white,
@@ -242,5 +269,44 @@ class ConfirmApplicationScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _submitApplication() async {
+    final jobId = widget.job['id']?.toString();
+    if (jobId == null || jobId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid Job ID.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    final result = await ApplicationService.instance.applyToJob(jobId);
+
+    if (!mounted) return;
+
+    setState(() {
+      _isSubmitting = false;
+    });
+
+    if (result.success) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ApplicationSuccessScreen(job: widget.job),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Failed to submit application.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }

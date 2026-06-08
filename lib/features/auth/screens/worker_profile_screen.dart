@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/auth_state.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/premium_image.dart';
@@ -11,12 +13,17 @@ import 'edit_profile_screen.dart';
 import 'language_selection_screen.dart';
 import 'worker_help_faq_screen.dart';
 import 'my_status_screen.dart';
+import '../../home/screens/job_search_screen.dart';
+import '../../employer/screens/hire_workers_screen.dart';
 
 class WorkerProfileScreen extends StatelessWidget {
   const WorkerProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final authState = Provider.of<AuthState>(context);
+    final profile = authState.profile;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -71,7 +78,24 @@ class WorkerProfileScreen extends StatelessWidget {
                 _SettingsItem(
                   icon: Icons.thumb_up_alt_outlined, 
                   title: MyApp.userRole == 'Worker' ? 'Work Recommendation' : 'Job Recommendation',
-                  onTap: () {},
+                  onTap: () {
+                    if (MyApp.userRole == 'Worker') {
+                      final skill = profile?['primarySkill'] ?? 'Mason';
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => JobSearchScreen(initialQuery: skill),
+                        ),
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const HireWorkersScreen(),
+                        ),
+                      );
+                    }
+                  },
                 ),
               ]),
               SizedBox(height: 24.h),
@@ -97,6 +121,14 @@ class WorkerProfileScreen extends StatelessWidget {
   }
 
   Widget _buildUserHeaderCard(BuildContext context) {
+    final authState = Provider.of<AuthState>(context);
+    final profile = authState.profile;
+    final String name = profile?['name'] ?? profile?['ownerName'] ?? 'User';
+    final String phone = profile?['phone'] ?? authState.pendingPhone ?? '+91 XXXXX XXXXX';
+    final avatar = (profile?['profilePhoto'] != null && profile!['profilePhoto'].toString().isNotEmpty)
+        ? profile['profilePhoto'].toString()
+        : 'https://i.pravatar.cc/150?u=${profile?['_id'] ?? name}';
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -124,7 +156,7 @@ class WorkerProfileScreen extends StatelessWidget {
         child: Row(
           children: [
             PremiumImage(
-              imageUrl: 'https://i.pravatar.cc/150?u=manoj',
+              imageUrl: avatar,
               width: 60.r,
               height: 60.r,
               isAvatar: true,
@@ -135,7 +167,7 @@ class WorkerProfileScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Manoj',
+                    name,
                     style: GoogleFonts.poppins(
                       fontSize: 18.sp,
                       fontWeight: FontWeight.bold,
@@ -143,7 +175,7 @@ class WorkerProfileScreen extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '+91 98765 43210',
+                    phone,
                     style: GoogleFonts.poppins(
                       fontSize: 14.sp,
                       color: AppColors.textLightGray,
@@ -252,7 +284,16 @@ class WorkerProfileScreen extends StatelessWidget {
       height: 56.h,
       margin: EdgeInsets.symmetric(horizontal: 4.w),
       child: ElevatedButton(
-        onPressed: () {},
+        onPressed: () async {
+          final authState = Provider.of<AuthState>(context, listen: false);
+          await authState.signOut();
+          if (context.mounted) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => const MyApp()),
+              (route) => false,
+            );
+          }
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFD32F2F),
           foregroundColor: Colors.white,

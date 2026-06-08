@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/services/job_service.dart';
 import '../../home/screens/notifications_screen.dart';
 import 'create_job_screen.dart';
 import 'job_applicants_screen.dart';
@@ -18,68 +20,81 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
   bool _showWork = false; // Toggle between Job and Work postings
   String _selectedFilter = 'All'; // Filter by: All, Active, Closed
 
-  // Mock Data for Job Postings
-  final List<Map<String, dynamic>> _mockJobs = [
-    {
-      'title': 'Mason / Construction worker',
-      'date': '12 Mar',
-      'applicants': 9,
-      'status': 'Active',
-      'wage': '600/day',
-    },
-    {
-      'title': 'Painter - Interior work',
-      'date': '8 Mar',
-      'applicants': 3,
-      'status': 'Active',
-      'wage': '750/day',
-    },
-    {
-      'title': 'Helper / general Labour',
-      'date': '5 Mar',
-      'applicants': 3,
-      'status': 'Closed',
-      'wage': '500/day',
-    },
-  ];
+  List<Map<String, dynamic>> _allPostings = [];
+  bool _isLoading = true;
+  String? _error;
 
-  // Mock Data for Work Postings
-  final List<Map<String, dynamic>> _mockWorks = [
-    {
-      'title': 'Plumbing Fitting Work',
-      'date': '10 Mar',
-      'applicants': 4,
-      'status': 'Active',
-      'wage': '800/day',
-    },
-    {
-      'title': 'Electrical Wiring Setup',
-      'date': '6 Mar',
-      'applicants': 7,
-      'status': 'Active',
-      'wage': '900/day',
-    },
-    {
-      'title': 'Tile Repair & Fixing',
-      'date': '3 Mar',
-      'applicants': 2,
-      'status': 'Closed',
-      'wage': '850/day',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadPostings();
+  }
+
+  Future<void> _loadPostings() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    final result = await JobService.instance.getEmployerJobs();
+
+    if (result.success && result.data != null) {
+      final List<dynamic> list = result.data!['data'] as List<dynamic>? ?? [];
+      setState(() {
+        _allPostings = list.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _error = result.error ?? 'Failed to load postings.';
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final postings = _showWork ? _mockWorks : _mockJobs;
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primaryPurple),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(_error!, style: GoogleFonts.poppins(color: Colors.red)),
+              SizedBox(height: 12.h),
+              ElevatedButton(
+                onPressed: _loadPostings,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final postings = _allPostings.where((p) => (p['isWork'] as bool? ?? false) == _showWork).toList();
+
     final filteredPostings = postings.where((p) {
+      final isActive = p['isActive'] as bool? ?? true;
+      final statusStr = isActive ? 'Active' : 'Closed';
       if (_selectedFilter == 'All') return true;
-      return p['status'] == _selectedFilter;
+      return statusStr == _selectedFilter;
     }).toList();
 
     // Stats calculations
-    final activeCount = postings.where((p) => p['status'] == 'Active').length;
-    final totalApplicants = postings.fold<int>(0, (sum, item) => sum + (item['applicants'] as int));
-    const approvedCount = 2; // Static mock value
+    final activeCount = postings.where((p) => (p['isActive'] as bool? ?? true)).length;
+    final totalApplicants = postings.fold<int>(0, (sum, item) => sum + (item['applicants'] as int? ?? 0));
+    final approvedCount = postings.fold<int>(0, (sum, item) => sum + (item['approved'] as int? ?? 0));
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -91,83 +106,29 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
             _buildStatsCard(activeCount, totalApplicants, approvedCount),
             _buildFilterChips(),
             Expanded(
-              child: _buildPostingsList(filteredPostings),
+              child: RefreshIndicator(
+                onRefresh: _loadPostings,
+                color: AppColors.primaryPurple,
+                child: _buildPostingsList(filteredPostings),
+              ),
             ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          showModalBottomSheet(
-            context: context,
-            backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CreateJobScreen(isWork: _showWork),
             ),
-            builder: (context) {
-              return Container(
-                padding: EdgeInsets.all(24.w),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Select Posting Type',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textBlack,
-                      ),
-                    ),
-                    SizedBox(height: 20.h),
-                    ListTile(
-                      leading: Icon(Icons.work_outline_rounded, color: AppColors.primaryPurple),
-                      title: Text(
-                        'Post a Work',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CreateJobScreen(isWork: true),
-                          ),
-                        );
-                      },
-                    ),
-                    Divider(color: AppColors.borderGray.withValues(alpha: 0.1)),
-                    ListTile(
-                      leading: Icon(Icons.business_center_outlined, color: AppColors.primaryPurple),
-                      title: Text(
-                        'Post a Job',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CreateJobScreen(isWork: false),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
           );
+          _loadPostings(); // reload after posting
         },
         backgroundColor: AppColors.primaryPurple,
         icon: const Icon(Icons.add, color: Colors.white),
         label: Text(
-          'Post Job',
+          _showWork ? 'Post Work' : 'Post Job',
           style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.white),
         ),
       ),
@@ -175,9 +136,8 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
   }
 
   Widget _buildHeader() {
-    final titleText = _showWork ? 'My Posted Work' : 'My Posted Jobs';
     return Padding(
-      padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 12.h),
+      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -185,17 +145,13 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                titleText,
-                style: AppTextStyles.questionTitle.copyWith(
-                  fontSize: 26.sp,
-                  color: AppColors.textBlack,
-                ),
+                'Koulini',
+                style: AppTextStyles.questionTitle.copyWith(fontSize: 24.sp, color: AppColors.textBlack),
               ),
-              SizedBox(height: 4.h),
               Text(
-                'Ravi Builders',
+                'Manage postings and hires',
                 style: GoogleFonts.poppins(
-                  fontSize: 14.sp,
+                  fontSize: 13.sp,
                   color: AppColors.textLightGray,
                   fontWeight: FontWeight.w500,
                 ),
@@ -322,11 +278,11 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildStatItem(active.toString(), activeLabel),
+            _buildStatsCardItem(active.toString(), activeLabel),
             _buildDivider(),
-            _buildStatItem(applicants.toString(), 'Applicants'),
+            _buildStatsCardItem(applicants.toString(), 'Applicants'),
             _buildDivider(),
-            _buildStatItem(approved.toString(), 'Approved'),
+            _buildStatsCardItem(approved.toString(), 'Approved'),
           ],
         ),
       ),
@@ -341,7 +297,7 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
     );
   }
 
-  Widget _buildStatItem(String count, String label) {
+  Widget _buildStatsCardItem(String count, String label) {
     return Column(
       children: [
         Text(
@@ -417,7 +373,17 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
       itemCount: list.length,
       itemBuilder: (context, index) {
         final item = list[index];
-        final bool isActive = item['status'] == 'Active';
+        final bool isActive = item['isActive'] as bool? ?? true;
+        final statusText = isActive ? 'Active' : 'Closed';
+
+        // Parse date
+        String formattedDate = '';
+        try {
+          final parsedDate = DateTime.parse(item['postedAt'] as String);
+          formattedDate = DateFormat('dd MMM').format(parsedDate);
+        } catch (_) {
+          formattedDate = 'Recently';
+        }
 
         return Container(
           margin: EdgeInsets.only(bottom: 16.h),
@@ -437,13 +403,12 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title and Status
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
                     child: Text(
-                      item['title']!,
+                      item['title'] ?? 'Title',
                       style: GoogleFonts.poppins(
                         fontSize: 16.sp,
                         fontWeight: FontWeight.bold,
@@ -458,7 +423,7 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
                       borderRadius: BorderRadius.circular(8.r),
                     ),
                     child: Text(
-                      item['status']!,
+                      statusText,
                       style: GoogleFonts.poppins(
                         fontSize: 10.sp,
                         fontWeight: FontWeight.bold,
@@ -469,27 +434,21 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
                 ],
               ),
               SizedBox(height: 4.h),
-              
-              // Posted Date
               Text(
-                'Posted on ${item['date']}',
+                'Posted on $formattedDate',
                 style: GoogleFonts.poppins(
                   fontSize: 13.sp,
                   color: AppColors.textLightGray,
                 ),
               ),
               SizedBox(height: 16.h),
-
-              // Divider
               Divider(color: AppColors.borderGray.withValues(alpha: 0.1), height: 1.h),
               SizedBox(height: 12.h),
-
-              // Applicants and View link
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${item['applicants']} Applicants',
+                    '${item['applicants'] ?? 0} Applicants',
                     style: GoogleFonts.poppins(
                       fontSize: 14.sp,
                       fontWeight: FontWeight.bold,
@@ -497,8 +456,8 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
                     ),
                   ),
                   GestureDetector(
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => JobApplicantsScreen(
@@ -507,6 +466,7 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
                           ),
                         ),
                       );
+                      _loadPostings(); // reload on return in case status changed
                     },
                     child: Row(
                       children: [

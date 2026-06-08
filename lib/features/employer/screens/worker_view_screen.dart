@@ -63,6 +63,17 @@ class WorkerViewScreen extends StatelessWidget {
   }
 
   Widget _buildProfileHeader() {
+    final name = worker['name'] ?? 'Unknown';
+    final skill = worker['primarySkill'] ?? worker['customSkill'] ?? 'General Worker';
+    final avatar = (worker['profilePhoto'] != null && worker['profilePhoto'].toString().isNotEmpty)
+        ? worker['profilePhoto'].toString()
+        : 'https://i.pravatar.cc/150?u=${worker['_id'] ?? name}';
+
+    final loc = worker['location'] as Map<String, dynamic>?;
+    final locationText = loc != null 
+        ? '@ ${loc['village'] ?? ''} ${loc['mandal'] ?? ''}, ${loc['district'] ?? ''}'.trim()
+        : '@ Machilipatnam, Krishna District';
+
     return Container(
       width: double.infinity,
       color: const Color(0xFFF9FAFB),
@@ -70,14 +81,14 @@ class WorkerViewScreen extends StatelessWidget {
       child: Column(
         children: [
           PremiumImage(
-            imageUrl: worker['avatar'] ?? 'https://i.pravatar.cc/150?u=manoj',
+            imageUrl: avatar,
             width: 108.r,
             height: 108.r,
             isAvatar: true,
           ),
           SizedBox(height: 16.h),
           Text(
-            worker['name'] ?? 'Manoj Kumar',
+            name,
             style: GoogleFonts.poppins(
               fontSize: 22.sp,
               fontWeight: FontWeight.bold,
@@ -86,7 +97,7 @@ class WorkerViewScreen extends StatelessWidget {
           ),
           SizedBox(height: 4.h),
           Text(
-            worker['skill'] ?? 'Mason & Tile Work Specialist',
+            skill,
             style: GoogleFonts.poppins(
               fontSize: 14.sp,
               color: AppColors.textLightGray,
@@ -95,7 +106,7 @@ class WorkerViewScreen extends StatelessWidget {
           ),
           SizedBox(height: 4.h),
           Text(
-            '@ Machilipatnam, Krishna District',
+            locationText,
             style: GoogleFonts.poppins(
               fontSize: 13.sp,
               color: AppColors.textLightGray.withValues(alpha: 0.7),
@@ -107,6 +118,11 @@ class WorkerViewScreen extends StatelessWidget {
   }
 
   Widget _buildStatsCard() {
+    final jobs = (worker['jobsCompleted'] ?? 0).toString();
+    final exp = worker['experienceLevel'] ?? 'No Experience';
+    final ratingVal = worker['rating'] ?? 0.0;
+    final rating = ratingVal is num ? ratingVal.toStringAsFixed(1) : ratingVal.toString();
+
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 24.w),
       padding: EdgeInsets.symmetric(vertical: 20.h),
@@ -125,11 +141,11 @@ class WorkerViewScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildStatItem('15', 'Jobs Done'),
+          _buildStatItem(jobs, 'Jobs Done'),
           _buildDivider(),
-          _buildStatItem(worker['experience'] ?? '2 yrs', 'Experience'),
+          _buildStatItem(exp, 'Experience'),
           _buildDivider(),
-          _buildStatItem(worker['rating'] ?? '4.8', 'Ratings'),
+          _buildStatItem(rating, 'Ratings'),
         ],
       ),
     );
@@ -141,7 +157,7 @@ class WorkerViewScreen extends StatelessWidget {
         Text(
           value,
           style: GoogleFonts.poppins(
-            fontSize: 20.sp,
+            fontSize: 14.sp,
             fontWeight: FontWeight.bold,
             color: Colors.black,
           ),
@@ -167,7 +183,17 @@ class WorkerViewScreen extends StatelessWidget {
   }
 
   Widget _buildSkillsSection() {
-    final skills = ['Mason', 'Tile Work', 'Plastering', 'Painting'];
+    final List<String> skills = [];
+    if (worker['primarySkill'] != null && worker['primarySkill'].toString().isNotEmpty) {
+      skills.add(worker['primarySkill']);
+    }
+    if (worker['customSkill'] != null && worker['customSkill'].toString().isNotEmpty) {
+      skills.add(worker['customSkill']);
+    }
+    if (skills.isEmpty) {
+      skills.add('General Worker');
+    }
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 24.w),
       child: Column(

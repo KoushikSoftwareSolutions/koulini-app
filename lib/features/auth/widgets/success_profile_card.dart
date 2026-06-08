@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/auth_state.dart';
 import '../../../core/theme/app_colors.dart';
 
 class SuccessProfileCard extends StatelessWidget {
@@ -8,6 +10,42 @@ class SuccessProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authState = Provider.of<AuthState>(context);
+    final profile = authState.profile;
+
+    final isEmployer = authState.role == 'Employer';
+
+    // Extract dynamic fields
+    final String name = isEmployer
+        ? (profile?['businessName'] ?? profile?['ownerName'] ?? 'Business Name')
+        : (profile?['name'] ?? 'Worker Name');
+
+    final String subtitle = isEmployer
+        ? (profile?['businessType'] ?? 'Employer Profile')
+        : (profile?['primarySkill'] ?? profile?['customSkill'] ?? 'General Worker');
+
+    final loc = profile?['location'] as Map<String, dynamic>?;
+    final String location = loc != null
+        ? '${loc['village'] ?? loc['mandal'] ?? ''}, ${loc['district'] ?? ''}'.trim()
+        : 'Krishna, Andhra Pradesh';
+
+    final int age = isEmployer
+        ? (profile?['ownerAge'] ?? 30)
+        : (profile?['age'] ?? 25);
+
+    final String phone = profile?['phone'] ?? authState.pendingPhone ?? '+91 XXXXX XXXXX';
+
+    // Initials for avatar
+    String initials = 'MK';
+    if (name.isNotEmpty) {
+      final parts = name.split(' ');
+      if (parts.length > 1) {
+        initials = '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+      } else {
+        initials = name.substring(0, name.length > 1 ? 2 : 1).toUpperCase();
+      }
+    }
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(20.w),
@@ -35,13 +73,13 @@ class SuccessProfileCard extends StatelessWidget {
               Container(
                 width: 64.w,
                 height: 64.w,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1B5E20), // Dark green for Manoj from design
+                decoration: BoxDecoration(
+                  color: isEmployer ? AppColors.primaryPurple : const Color(0xFF1B5E20),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
                   child: Text(
-                    'MK',
+                    initials,
                     style: GoogleFonts.poppins(
                       fontSize: 24.sp,
                       fontWeight: FontWeight.bold,
@@ -57,7 +95,7 @@ class SuccessProfileCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Manoj Kumar',
+                      name,
                       style: GoogleFonts.poppins(
                         fontSize: 18.sp,
                         fontWeight: FontWeight.bold,
@@ -65,14 +103,14 @@ class SuccessProfileCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Plumber + Electrician',
+                      subtitle,
                       style: GoogleFonts.poppins(
                         fontSize: 14.sp,
                         color: AppColors.textLightGray,
                       ),
                     ),
                     Text(
-                      'Andheri, Mumbai',
+                      location,
                       style: GoogleFonts.poppins(
                         fontSize: 14.sp,
                         color: AppColors.textLightGray.withValues(alpha: 0.7),
@@ -82,7 +120,7 @@ class SuccessProfileCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          'Age: 25',
+                          'Age: $age',
                           style: GoogleFonts.poppins(
                             fontSize: 13.sp,
                             fontWeight: FontWeight.w500,
@@ -97,7 +135,7 @@ class SuccessProfileCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '+91 98765 43210',
+                          phone,
                           style: GoogleFonts.poppins(
                             fontSize: 13.sp,
                             fontWeight: FontWeight.w500,
@@ -116,18 +154,18 @@ class SuccessProfileCard extends StatelessWidget {
           Divider(color: AppColors.borderGray.withValues(alpha: 0.1)),
           SizedBox(height: 12.h),
           Text(
-            'Profile 80% complete',
+            'Profile 100% complete',
             style: GoogleFonts.poppins(
               fontSize: 13.sp,
               fontWeight: FontWeight.w500,
-              color: AppColors.textLightGray,
+              color: const Color(0xFF4CAF50),
             ),
           ),
           SizedBox(height: 8.h),
           ClipRRect(
             borderRadius: BorderRadius.circular(10.r),
             child: LinearProgressIndicator(
-              value: 0.8,
+              value: 1.0,
               minHeight: 8.h,
               backgroundColor: AppColors.borderGray.withValues(alpha: 0.1),
               valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF4CAF50)),

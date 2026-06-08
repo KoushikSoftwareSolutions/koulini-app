@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/auth_state.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../auth/screens/sign_in_screen.dart';
 import 'edit_business_screen.dart';
@@ -121,6 +123,11 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
   }
 
   Widget _buildBusinessHeaderCard() {
+    final authState = Provider.of<AuthState>(context);
+    final profile = authState.profile;
+    final businessName = profile?['businessName'] ?? 'Vijay Constructions';
+    final ownerName = profile?['ownerName'] ?? 'Vijay Kumar';
+
     return InkWell(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EditBusinessScreen())),
       borderRadius: BorderRadius.circular(20.r),
@@ -135,7 +142,12 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
             CircleAvatar(
               radius: 30.r,
               backgroundColor: AppColors.primaryPurple.withValues(alpha: 0.1),
-              child: Icon(Icons.business_rounded, color: AppColors.primaryPurple, size: 28.sp),
+              backgroundImage: (profile?['profilePhoto'] != null && profile!['profilePhoto'].toString().isNotEmpty)
+                  ? NetworkImage(profile['profilePhoto'].toString())
+                  : null,
+              child: (profile?['profilePhoto'] == null || profile!['profilePhoto'].toString().isEmpty)
+                  ? Icon(Icons.business_rounded, color: AppColors.primaryPurple, size: 28.sp)
+                  : null,
             ),
             SizedBox(width: 16.w),
             Expanded(
@@ -143,7 +155,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Vijay Constructions',
+                    businessName,
                     style: GoogleFonts.poppins(
                       fontSize: 18.sp,
                       fontWeight: FontWeight.bold,
@@ -151,7 +163,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
                     ),
                   ),
                   Text(
-                    'Vijay Kumar (Owner)',
+                    '$ownerName (Owner)',
                     style: GoogleFonts.poppins(
                       fontSize: 14.sp,
                       color: AppColors.textLightGray,
@@ -260,13 +272,17 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
       height: 56.h,
       margin: EdgeInsets.symmetric(horizontal: 4.w),
       child: ElevatedButton(
-        onPressed: () {
-          // Clear stack and go to sign in
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const SignInScreen()),
-            (route) => false,
-          );
+        onPressed: () async {
+          final authState = Provider.of<AuthState>(context, listen: false);
+          await authState.signOut();
+          if (context.mounted) {
+            // Clear stack and go to sign in
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const SignInScreen()),
+              (route) => false,
+            );
+          }
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFD32F2F),

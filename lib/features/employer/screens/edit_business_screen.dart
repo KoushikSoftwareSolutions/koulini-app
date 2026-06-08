@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/auth_state.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 
@@ -16,13 +18,17 @@ class _EditBusinessScreenState extends State<EditBusinessScreen> {
   late TextEditingController _businessNameController;
   late TextEditingController _ownerNameController;
   late TextEditingController _phoneController;
+  String? _profilePhotoUrl;
 
   @override
   void initState() {
     super.initState();
-    _businessNameController = TextEditingController(text: 'Vijay Constructions');
-    _ownerNameController = TextEditingController(text: 'Vijay Kumar');
-    _phoneController = TextEditingController(text: '98480 22338');
+    final authState = Provider.of<AuthState>(context, listen: false);
+    final profile = authState.profile;
+    _businessNameController = TextEditingController(text: profile?['businessName'] ?? 'Vijay Constructions');
+    _ownerNameController = TextEditingController(text: profile?['ownerName'] ?? 'Vijay Kumar');
+    _phoneController = TextEditingController(text: profile?['phone'] ?? '98480 22338');
+    _profilePhotoUrl = profile?['profilePhoto'];
   }
 
   @override
@@ -74,10 +80,18 @@ class _EditBusinessScreenState extends State<EditBusinessScreen> {
                             color: AppColors.primaryPurple.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                             border: Border.all(color: AppColors.primaryPurple.withValues(alpha: 0.2), width: 2),
+                            image: _profilePhotoUrl != null
+                                ? DecorationImage(
+                                    image: NetworkImage(_profilePhotoUrl!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
                           ),
-                          child: Center(
-                            child: Icon(Icons.business_rounded, color: AppColors.primaryPurple, size: 40.sp),
-                          ),
+                          child: _profilePhotoUrl == null
+                              ? Center(
+                                  child: Icon(Icons.business_rounded, color: AppColors.primaryPurple, size: 40.sp),
+                                )
+                              : null,
                         ),
                         Positioned(
                           bottom: 0,
@@ -120,13 +134,28 @@ class _EditBusinessScreenState extends State<EditBusinessScreen> {
                 ),
                 SizedBox(height: 48.h),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (_formKey.currentState!.validate()) {
-                      // Logic to save would go here
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Profile updated successfully!')),
-                      );
-                      Navigator.pop(context);
+                      final authState = Provider.of<AuthState>(context, listen: false);
+                      final success = await authState.updateProfile({
+                        'businessName': _businessNameController.text.trim(),
+                        'ownerName': _ownerNameController.text.trim(),
+                        'phone': _phoneController.text.trim(),
+                        if (_profilePhotoUrl != null) 'profilePhoto': _profilePhotoUrl,
+                      });
+                      
+                      if (context.mounted) {
+                        if (success) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Profile updated successfully!')),
+                          );
+                          Navigator.pop(context);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(authState.error ?? 'Failed to update profile')),
+                          );
+                        }
+                      }
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -180,9 +209,7 @@ class _EditBusinessScreenState extends State<EditBusinessScreen> {
               title: 'Take Photo',
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Camera opened (Mock)')),
-                );
+                _showPresetPicker();
               },
             ),
             _buildSourceOption(
@@ -190,10 +217,132 @@ class _EditBusinessScreenState extends State<EditBusinessScreen> {
               title: 'Choose from Gallery',
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Gallery opened (Mock)')),
-                );
+                _showPresetPicker();
               },
+            ),
+            SizedBox(height: 16.h),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Center(
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.redAccent,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPresetPicker() {
+    final presets = [
+      {
+        'name': 'Construction',
+        'url': 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=400&auto=format&fit=crop&q=80',
+      },
+      {
+        'name': 'Tech / Office',
+        'url': 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&auto=format&fit=crop&q=80',
+      },
+      {
+        'name': 'Corporate',
+        'url': 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&auto=format&fit=crop&q=80',
+      },
+      {
+        'name': 'Renovation',
+        'url': 'https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&auto=format&fit=crop&q=80',
+      },
+      {
+        'name': 'Business Logo',
+        'url': 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&auto=format&fit=crop&q=80',
+      },
+      {
+        'name': 'Services',
+        'url': 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=400&auto=format&fit=crop&q=80',
+      },
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32.r))),
+      builder: (context) => Container(
+        padding: EdgeInsets.all(24.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Select Premium Preset Photo',
+              style: GoogleFonts.poppins(
+                fontSize: 20.sp,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textBlack,
+              ),
+            ),
+            SizedBox(height: 20.h),
+            SizedBox(
+              height: 120.h,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: presets.length,
+                itemBuilder: (context, idx) {
+                  final p = presets[idx];
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _profilePhotoUrl = p['url'];
+                      });
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${p['name']} photo selected! Save to apply.'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: EdgeInsets.only(right: 16.w),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 70.w,
+                            height: 70.w,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _profilePhotoUrl == p['url']
+                                    ? AppColors.primaryPurple
+                                    : Colors.transparent,
+                                width: 3,
+                              ),
+                              image: DecorationImage(
+                                image: NetworkImage(p['url']!),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 8.h),
+                          Text(
+                            p['name']!,
+                            style: GoogleFonts.poppins(
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textBlack,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
             SizedBox(height: 16.h),
             TextButton(
