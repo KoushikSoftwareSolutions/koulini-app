@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// For Android emulator use: http://10.0.2.2:5001/api
 /// For iOS simulator use: http://localhost:5001/api
 /// For physical device: use your machine's local IP, e.g. http://192.168.1.x:5001/api
-const String kBaseUrl = 'http://localhost:5001/api';
+const String kBaseUrl = 'http://72.61.229.223:5001/api';
 
 /// Key used to store the JWT in SharedPreferences.
 const String kTokenKey = 'auth_token';
