@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// For Android emulator use: http://10.0.2.2:5001/api
 /// For iOS simulator use: http://localhost:5001/api
 /// For physical device: use your machine's local IP, e.g. http://192.168.1.x:5001/api
-const String kBaseUrl = 'http://localhost:5001/api';
+const String kBaseUrl = 'https://api.koulini.in/api';
 
 /// Key used to store the JWT in SharedPreferences.
 const String kTokenKey = 'auth_token';
@@ -18,13 +18,9 @@ class ApiResult<T> {
   final T? data;
   final String? error;
 
-  const ApiResult.ok(this.data)
-      : success = true,
-        error = null;
+  const ApiResult.ok(this.data) : success = true, error = null;
 
-  const ApiResult.err(this.error)
-      : success = false,
-        data = null;
+  const ApiResult.err(this.error) : success = false, data = null;
 }
 
 /// Low-level HTTP client that:
@@ -55,9 +51,7 @@ class ApiClient {
   // ─── Request helpers ───────────────────────────────────────────────────────
 
   Future<Map<String, String>> _headers({bool auth = false}) async {
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-    };
+    final headers = <String, String>{'Content-Type': 'application/json'};
     if (auth) {
       final token = await getToken();
       if (token != null) {
@@ -86,9 +80,12 @@ class ApiClient {
       return _parse(response);
     } on SocketException {
       return const ApiResult.err(
-          'No internet connection. Please check your network and try again.');
+        'No internet connection. Please check your network and try again.',
+      );
     } on HttpException {
-      return const ApiResult.err('Could not reach the server. Please try again.');
+      return const ApiResult.err(
+        'Could not reach the server. Please try again.',
+      );
     } catch (e) {
       return ApiResult.err('Something went wrong: $e');
     }
@@ -100,10 +97,7 @@ class ApiClient {
   }) async {
     try {
       final response = await http
-          .get(
-            Uri.parse('$kBaseUrl$path'),
-            headers: await _headers(auth: auth),
-          )
+          .get(Uri.parse('$kBaseUrl$path'), headers: await _headers(auth: auth))
           .timeout(const Duration(seconds: 15));
 
       return _parse(response);
@@ -192,7 +186,8 @@ class ApiClient {
       return ApiResult.err(message);
     } catch (_) {
       return ApiResult.err(
-          'Unexpected response from server (status ${response.statusCode}).');
+        'Unexpected response from server (status ${response.statusCode}).',
+      );
     }
   }
 }
