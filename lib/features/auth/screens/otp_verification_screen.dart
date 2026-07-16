@@ -10,6 +10,8 @@ import '../../employer/layout/employer_main_wrapper.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import 'role_selection_screen.dart';
+import 'create_pin_screen.dart';
+import '../../../core/services/auth_service.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String phoneNumber;
@@ -57,6 +59,54 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     });
   }
 
+  Future<void> _handleResendOtp() async {
+    final authState = Provider.of<AuthState>(context, listen: false);
+    final result = await AuthService.instance.sendOtp(
+      phone: widget.phoneNumber,
+      role: authState.role ?? 'Worker',
+      language: authState.language ?? 'en',
+    );
+
+    if (result.success) {
+      _startTimer();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('OTP resent successfully.'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        final devOtp = result.data?['devOtp'];
+        if (devOtp != null) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Developer OTP'),
+              content: Text('Dev Mode OTP: $devOtp'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? 'Failed to resend OTP.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _handleVerifyOtp(BuildContext context) async {
     final code = _otpController.text.trim();
     if (code.length != 6) return;
@@ -70,24 +120,42 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     if (success) {
       if (mounted) {
         if (authState.isRegistered) {
-          if (authState.role == 'Employer') {
-            Navigator.pushAndRemoveUntil(
+          if (!authState.hasPin) {
+            Navigator.pushReplacement(
               context,
               PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) => const EmployerMainWrapper(),
-                transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
+                pageBuilder: (context, animation, secondaryAnimation) => const CreatePinScreen(),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  return SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(1, 0),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  );
+                },
               ),
-              (route) => false,
             );
           } else {
-            Navigator.pushAndRemoveUntil(
-              context,
-              PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) => const MainWrapper(),
-                transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
-              ),
-              (route) => false,
-            );
+            if (authState.role == 'Employer') {
+              Navigator.pushAndRemoveUntil(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) => const EmployerMainWrapper(),
+                  transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
+                ),
+                (route) => false,
+              );
+            } else {
+              Navigator.pushAndRemoveUntil(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) => const MainWrapper(),
+                  transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
+                ),
+                (route) => false,
+              );
+            }
           }
         } else {
           Navigator.push(
@@ -245,7 +313,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                             ),
                           ),
                           TextButton(
-                            onPressed: _timerSeconds == 0 ? _startTimer : null,
+                            onPressed: _timerSeconds == 0 ? _handleResendOtp : null,
                             style: TextButton.styleFrom(
                               padding: EdgeInsets.zero,
                               minimumSize: Size.zero,

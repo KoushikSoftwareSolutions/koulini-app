@@ -9,8 +9,11 @@ class WorkerRegistrationData {
   final int age;
   final String gender;
   final String? aadhaarNumber;
+  final String? category;
   final String? primarySkill;
+  final String? specialization;
   final String? customSkill;
+  final String? customSpecialization;
   final String? experienceLevel;
   final String state;
   final String district;
@@ -25,8 +28,11 @@ class WorkerRegistrationData {
     required this.age,
     required this.gender,
     this.aadhaarNumber,
+    this.category,
     this.primarySkill,
+    this.specialization,
     this.customSkill,
+    this.customSpecialization,
     this.experienceLevel,
     required this.state,
     required this.district,
@@ -74,6 +80,15 @@ class AuthService {
 
   final _client = ApiClient.instance;
 
+  // ─── Check User ───────────────────────────────────────────────────────────
+  Future<ApiResult<Map<String, dynamic>>> checkUser({
+    required String phone,
+  }) {
+    return _client.post('/auth/check-user', {
+      'phone': phone,
+    });
+  }
+
   // ─── Send OTP ─────────────────────────────────────────────────────────────
   /// Sends a 6-digit OTP to [phone]. Returns success or an error message.
   /// In dev mode the backend also returns devOtp for testing.
@@ -114,10 +129,22 @@ class AuthService {
       'name': data.name,
       'age': data.age,
       'gender': data.gender,
-      if (data.aadhaarNumber != null) 'aadhaarNumber': data.aadhaarNumber,
-      if (data.primarySkill != null) 'primarySkill': data.primarySkill,
-      if (data.customSkill != null) 'customSkill': data.customSkill,
-      if (data.experienceLevel != null) 'experienceLevel': data.experienceLevel,
+      if (data.aadhaarNumber != null && data.aadhaarNumber!.trim().isNotEmpty)
+        'aadhaarNumber': data.aadhaarNumber!.trim(),
+      if (data.category != null && data.category!.trim().isNotEmpty)
+        'category': data.category!.trim(),
+      if (data.primarySkill != null && data.primarySkill!.trim().isNotEmpty)
+        'primarySkill': data.primarySkill!.trim(),
+      if (data.specialization != null && data.specialization!.trim().isNotEmpty)
+        'specialization': data.specialization!.trim(),
+      if (data.customSkill != null && data.customSkill!.trim().isNotEmpty)
+        'customSkill': data.customSkill!.trim(),
+      if (data.customSpecialization != null && data.customSpecialization!.trim().isNotEmpty)
+        'customSpecialization': data.customSpecialization!.trim(),
+      if (data.experienceLevel != null &&
+          const ['No Experience', '1-2 Years', '2-5 Years', '5-10 Years', '10+ Years']
+              .contains(data.experienceLevel!.trim()))
+        'experienceLevel': data.experienceLevel!.trim(),
       'location': {
         'state': data.state,
         'district': data.district,
@@ -139,10 +166,11 @@ class AuthService {
       'ownerName': data.ownerName,
       if (data.ownerAge != null) 'ownerAge': data.ownerAge,
       if (data.ownerGender != null) 'ownerGender': data.ownerGender,
-      if (data.email != null && data.email!.isNotEmpty) 'email': data.email,
+      if (data.email != null && data.email!.trim().isNotEmpty)
+        'email': data.email!.trim(),
       'businessType': data.businessType,
-      if (data.customBusinessType != null)
-        'customBusinessType': data.customBusinessType,
+      if (data.customBusinessType != null && data.customBusinessType!.trim().isNotEmpty)
+        'customBusinessType': data.customBusinessType!.trim(),
       'location': {
         'state': data.state,
         'district': data.district,
@@ -163,5 +191,37 @@ class AuthService {
   /// Updates the logged-in user profile (Worker or Employer details).
   Future<ApiResult<Map<String, dynamic>>> updateProfile(Map<String, dynamic> updateData) {
     return _client.put('/users/profile', updateData, auth: true);
+  }
+  // ─── PIN Authentication ───────────────────────────────────────────────────
+  Future<ApiResult<Map<String, dynamic>>> loginWithPin({
+    required String phone,
+    required String pin,
+  }) {
+    return _client.post('/auth/login-with-pin', {
+      'phone': phone,
+      'pin': pin,
+    });
+  }
+
+  Future<ApiResult<Map<String, dynamic>>> setPin({
+    required String pin,
+    required String confirmPin,
+  }) {
+    return _client.post('/auth/set-pin', {
+      'pin': pin,
+      'confirmPin': confirmPin,
+    }, auth: true);
+  }
+
+  Future<ApiResult<Map<String, dynamic>>> changePin({
+    required String currentPin,
+    required String newPin,
+    required String confirmPin,
+  }) {
+    return _client.post('/auth/change-pin', {
+      'currentPin': currentPin,
+      'newPin': newPin,
+      'confirmPin': confirmPin,
+    }, auth: true);
   }
 }

@@ -66,7 +66,7 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
             Padding(
               padding: EdgeInsets.fromLTRB(24.w, 32.h, 24.w, 24.h),
               child: Text(
-                'My Applications',
+                MyApp.userRole == 'Jobs' ? 'My Job' : 'My Applications',
                 style: AppTextStyles.questionTitle.copyWith(
                   fontSize: 28.sp,
                   color: AppColors.textBlack,

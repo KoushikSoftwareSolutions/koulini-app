@@ -6,9 +6,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../widgets/confetti_background.dart';
 import '../widgets/success_profile_card.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/auth_state.dart';
+import '../../../core/enums/user_role.dart';
 import '../../../../main_wrapper.dart';
 import '../../employer/layout/employer_main_wrapper.dart';
-import '../../../../main.dart';
+import 'create_pin_screen.dart';
 
 class RegistrationSuccessScreen extends StatefulWidget {
   final bool isEmployer;
@@ -42,7 +45,9 @@ class _RegistrationSuccessScreenState extends State<RegistrationSuccessScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isWorker = MyApp.userRole == 'Worker';
+    final authState = Provider.of<AuthState>(context, listen: false);
+    final userRole = authState.pendingRole ?? UserRole.worker;
+    final content = userRole.content;
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
@@ -72,9 +77,7 @@ class _RegistrationSuccessScreenState extends State<RegistrationSuccessScreen> {
                           Text(
                             widget.isEmployer 
                               ? 'Your Business profile is ready. Start hiring talented workers/employees near you!'
-                              : (isWorker
-                                  ? 'Your KaamKaro profile is ready. Start exploring work near you!'
-                                  : 'Your KaamKaro profile is ready. Start exploring jobs near you!'),
+                              : content.successMessage,
                             textAlign: TextAlign.center,
                             style: AppTextStyles.subtitle.copyWith(
                               fontSize: 14.sp,
@@ -107,10 +110,8 @@ class _RegistrationSuccessScreenState extends State<RegistrationSuccessScreen> {
                         color: const Color(0xFF4CAF50),
                         title: widget.isEmployer 
                             ? 'Post your first work/job' 
-                            : (isWorker 
-                                ? 'Business owners will find your profile' 
-                                : 'Employers will find your profile'),
-                        subtitle: widget.isEmployer ? 'Describe your requirements' : 'Your skills are now searchable',
+                            : content.step1Title,
+                        subtitle: widget.isEmployer ? 'Describe your requirements' : content.step1Subtitle,
                       ),
                       SizedBox(height: 24.h),
                       _buildStepItem(
@@ -118,30 +119,38 @@ class _RegistrationSuccessScreenState extends State<RegistrationSuccessScreen> {
                         color: const Color(0xFFFF9800),
                         title: widget.isEmployer 
                             ? 'Review applicants' 
-                            : (isWorker ? 'Get work alerts' : 'Get job alerts'),
+                            : content.step2Title,
                         subtitle: widget.isEmployer 
                             ? 'Check profiles and ratings' 
-                            : (isWorker ? "We'll notify you of matching work" : "We'll notify you of matching jobs"),
+                            : content.step2Subtitle,
                       ),
                       SizedBox(height: 24.h),
                       _buildStepItem(
                         index: '3',
                         color: const Color(0xFF2196F3),
-                        title: widget.isEmployer ? 'Communicate and Hire' : 'Apply in one tap',
-                        subtitle: widget.isEmployer ? 'Chat directly with workers/employees' : 'No lengthy forms needed',
+                        title: widget.isEmployer ? 'Communicate and Hire' : content.step3Title,
+                        subtitle: widget.isEmployer ? 'Chat directly with workers/employees' : content.step3Subtitle,
                       ),
                       SizedBox(height: 48.h),
                       
                       ElevatedButton(
                         onPressed: () {
-                          Widget target = widget.isEmployer 
-                            ? const EmployerMainWrapper()
-                            : const MainWrapper();
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(builder: (context) => target),
-                            (route) => false,
-                          );
+                          if (!authState.hasPin) {
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(builder: (context) => const CreatePinScreen()),
+                              (route) => false,
+                            );
+                          } else {
+                            Widget target = widget.isEmployer 
+                              ? const EmployerMainWrapper()
+                              : const MainWrapper();
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(builder: (context) => target),
+                              (route) => false,
+                            );
+                          }
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryPurple,
@@ -156,7 +165,7 @@ class _RegistrationSuccessScreenState extends State<RegistrationSuccessScreen> {
                         child: Text(
                           widget.isEmployer 
                               ? 'Start Hiring' 
-                              : (isWorker ? 'Start Finding Work' : 'Start Finding Jobs'),
+                              : content.startFindingButton,
                           style: GoogleFonts.poppins(
                             fontSize: 18.sp,
                             fontWeight: FontWeight.bold,

@@ -4,9 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../widgets/role_card.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/auth_state.dart';
+import '../../../core/enums/user_role.dart';
 import 'worker_registration_screen.dart';
-import 'employer_registration_screen.dart';
-import '../../../../main.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
@@ -16,13 +17,25 @@ class RoleSelectionScreen extends StatefulWidget {
 }
 
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
-  String selectedRole = 'Worker'; // Default based on design
+  UserRole selectedRole = UserRole.worker; // Default based on design
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
+      backgroundColor: Colors.white,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.white,
+              AppColors.primaryPurple.withValues(alpha: 0.03),
+              AppColors.primaryPurple.withValues(alpha: 0.08),
+            ],
+          ),
+        ),
+        child: SafeArea(
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
@@ -56,7 +69,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                               ),
                               child: Center(
                                 child: Text(
-                                  'K',
+                                  'k',
                                   style: GoogleFonts.poppins(
                                     fontSize: 32.sp,
                                     fontWeight: FontWeight.bold,
@@ -98,9 +111,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       title: 'Worker',
                       subtitle: 'Find daily wage work, manual labour, shop keeper, construction site work, drivers and other works near your area.',
                       initial: 'W',
-                      isSelected: selectedRole == 'Worker',
+                      isSelected: selectedRole == UserRole.worker,
                       onTap: () {
-                        setState(() => selectedRole = 'Worker');
+                        setState(() => selectedRole = UserRole.worker);
                       },
                     ),
                     SizedBox(height: 16.h),
@@ -109,67 +122,20 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       title: 'Jobs',
                       subtitle: 'Find jobs mentioned in the app are priest, teacher, nurse, trainer, pharmacist and warden.\n\nMore jobs will be added in future as per majority.',
                       initial: 'J',
-                      isSelected: selectedRole == 'Jobs',
+                      isSelected: selectedRole == UserRole.job,
                       onTap: () {
-                        setState(() => selectedRole = 'Jobs');
+                        setState(() => selectedRole = UserRole.job);
                       },
                     ),
                     const Spacer(),
                     
-                    // Business / Employer Link (Frosted button styled perfectly for the circled area)
-                    Center(
-                      child: TextButton(
-                        onPressed: () {
-                          // Sets role globally to Employer and navigates directly to EmployerRegistrationScreen
-                          MyApp.userRole = 'Employer';
-                          Navigator.push(
-                            context,
-                            PageRouteBuilder(
-                              pageBuilder: (context, animation, secondaryAnimation) => const EmployerRegistrationScreen(),
-                              transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                return SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: const Offset(1, 0),
-                                    end: Offset.zero,
-                                  ).animate(animation),
-                                  child: child,
-                                );
-                              },
-                            ),
-                          );
-                        },
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-                          backgroundColor: AppColors.primaryPurple.withValues(alpha: 0.08),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30.r),
-                            side: BorderSide(color: AppColors.primaryPurple.withValues(alpha: 0.15)),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.business_center_rounded, size: 18.sp, color: AppColors.primaryPurple),
-                            SizedBox(width: 8.w),
-                            Text(
-                              'Are you a Business or Employer?',
-                              style: GoogleFonts.poppins(
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primaryPurple,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 20.h),
+
                     
                     // Dynamic Bottom Button
                     ElevatedButton(
                       onPressed: () {
                         // Store the selected role globally
-                        MyApp.userRole = selectedRole;
+                        Provider.of<AuthState>(context, listen: false).setPendingRole(selectedRole);
 
                         Widget targetScreen = const WorkerRegistrationScreen();
 
@@ -200,7 +166,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                         shadowColor: AppColors.primaryPurple.withValues(alpha: 0.4),
                       ),
                       child: Text(
-                        'Continue as $selectedRole',
+                        selectedRole.content.roleSelectionContinueButton,
                         style: GoogleFonts.poppins(
                           fontSize: 18.sp,
                           fontWeight: FontWeight.bold,
@@ -213,6 +179,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

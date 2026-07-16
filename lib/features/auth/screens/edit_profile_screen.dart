@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/services/auth_state.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/premium_image.dart';
 import '../widgets/gender_selector.dart';
 import '../widgets/skill_tag.dart';
@@ -26,15 +25,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String _selectedGender = 'Male';
   String _primarySkill = '';
   String _experience = 'No Experience';
-  String? _aadhaarPhoto;
+
   String? _profilePhotoUrl;
   bool _isSaving = false;
 
   // Skills lists
-  final List<String> _workerPrimarySkills = ['Mason', 'Electrician', 'Plumber', 'Carpenter', 'Painter', 'Driver', 'Construction Labour'];
+  final List<String> _workerPrimarySkills = ['Bricklayer (Mason)', 'Electrician', 'Plumber', 'Carpenter', 'Painter', 'Driver', 'Construction Labour'];
   final List<String> _jobsPrimarySkills = ['Priest', 'Teacher', 'Nurse', 'Trainer', 'Pharmacist', 'Warden'];
 
-  final Set<String> _selectedOtherSkills = {'Mason', 'Tile Work', 'Plastering', 'Painting'};
+  final Set<String> _selectedOtherSkills = {'Bricklayer (Mason)', 'Tile Work', 'Plastering', 'Painting'};
 
   // Work Gallery State (Workers)
   final List<Map<String, String>> _workGallery = [
@@ -83,9 +82,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           'Experienced professional dedicated to delivering high-quality results. Reliable and detail-oriented.'
     );
     _selectedGender = profile?['gender'] ?? 'Male';
-    _primarySkill = profile?['primarySkill'] ?? (MyApp.userRole == 'Worker' ? 'Mason' : 'Teacher');
+    _primarySkill = profile?['primarySkill'] ?? (MyApp.userRole == 'Worker' ? 'Bricklayer (Mason)' : 'Teacher');
     _experience = profile?['experienceLevel'] ?? 'No Experience';
-    _aadhaarPhoto = profile?['aadhaarPhoto'];
+
     _profilePhotoUrl = profile?['profilePhoto'];
 
     final loc = profile?['location'] as Map<String, dynamic>?;
@@ -147,7 +146,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       'phone': _phoneController.text.trim(),
       'primarySkill': _primarySkill,
       'experienceLevel': _experience,
-      if (_aadhaarPhoto != null) 'aadhaarPhoto': _aadhaarPhoto,
+
       if (_profilePhotoUrl != null) 'profilePhoto': _profilePhotoUrl,
       'about': _aboutController.text.trim(),
       'location': {
@@ -246,8 +245,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           _buildLabel('Phone Number'),
                           _buildTextField(_phoneController, 'Enter phone number', keyboardType: TextInputType.phone),
                           SizedBox(height: 20.h),
-                          _buildLabel('Aadhaar Card Photo'),
-                          _buildAadhaarPhotoWidget(),
+
                           
                           SizedBox(height: 32.h),
                           _buildSectionHeader('Professional Profile'),
@@ -301,64 +299,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildAadhaarPhotoWidget() {
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _aadhaarPhoto = 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80';
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Aadhaar photo uploaded successfully! Save to apply.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      },
-      child: Container(
-        height: 120.h,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
-          borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.2)),
-        ),
-        child: _aadhaarPhoto != null
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(16.r),
-                child: Stack(
-                  children: [
-                    PremiumImage(
-                      imageUrl: _aadhaarPhoto!,
-                      height: 120.h,
-                      width: double.infinity,
-                    ),
-                    Container(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      child: const Center(
-                        child: Icon(Icons.check_circle_rounded, color: Color(0xFF4CAF50), size: 36),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.credit_card_rounded, color: AppColors.textLightGray, size: 32.sp),
-                  SizedBox(height: 8.h),
-                  Text(
-                    'Upload Aadhaar Card Photo',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textLightGray,
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
+
 
   Widget _buildPrimarySkillDropdown(bool isWorker) {
     final list = List<String>.from(isWorker ? _workerPrimarySkills : _jobsPrimarySkills);
@@ -761,8 +702,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   )
                 : CircleAvatar(
                     radius: 50.r,
-                    backgroundColor: const Color(0xFFF3F4F6),
-                    child: Icon(Icons.person_rounded, size: 50.r, color: AppColors.textLightGray),
+                    backgroundColor: (() {
+                      final String displayName = _nameController.text.trim().isNotEmpty ? _nameController.text : 'User';
+                      final int colorCode = displayName.codeUnits.fold(0, (prev, element) => prev + element);
+                      final List<Color> colors = [
+                        const Color(0xFF7C3AED),
+                        const Color(0xFFEF4444),
+                        const Color(0xFF3B82F6),
+                        const Color(0xFF10B981),
+                        const Color(0xFFF59E0B),
+                        const Color(0xFFEC4899),
+                        const Color(0xFF06B6D4),
+                      ];
+                      return colors[colorCode % colors.length];
+                    })(),
+                    child: Text(
+                      (_nameController.text.trim().isNotEmpty ? _nameController.text : 'User').trim().substring(0, 1).toUpperCase(),
+                      style: GoogleFonts.poppins(
+                        fontSize: 36.sp,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
             Container(
               padding: EdgeInsets.all(8.w),
@@ -790,7 +751,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Worker Profile Photo',
+              'Profile Photo',
               style: GoogleFonts.poppins(
                 fontSize: 20.sp,
                 fontWeight: FontWeight.bold,
@@ -803,7 +764,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               title: 'Take Photo',
               onTap: () {
                 Navigator.pop(context);
-                _showPresetProfilePhotoPicker();
+                _simulateCameraCapture();
               },
             ),
             _buildSourceOption(
@@ -811,9 +772,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               title: 'Choose from Gallery',
               onTap: () {
                 Navigator.pop(context);
-                _showPresetProfilePhotoPicker();
+                _simulateGallerySelection();
               },
             ),
+            if (_profilePhotoUrl != null) ...[
+              _buildSourceOption(
+                icon: Icons.delete_rounded,
+                title: 'Remove Photo',
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() => _profilePhotoUrl = null);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Profile photo removed. Save to apply.'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+              ),
+            ],
             SizedBox(height: 16.h),
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -834,127 +811,93 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  void _showPresetProfilePhotoPicker() {
-    final presets = [
-      {
-        'name': 'Construction',
-        'url': 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&auto=format&fit=crop&q=80',
+  void _simulateCameraCapture() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        Future.delayed(const Duration(seconds: 1), () {
+          if (context.mounted) {
+            Navigator.pop(context);
+            setState(() {
+              _profilePhotoUrl = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Photo captured from camera! Save to apply.'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        });
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: AppColors.primaryPurple),
+              SizedBox(height: 16.h),
+              Text(
+                'Opening Camera...',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        );
       },
-      {
-        'name': 'Creative',
-        'url': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-      },
-      {
-        'name': 'Corporate',
-        'url': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-      },
-      {
-        'name': 'Services',
-        'url': 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=400&auto=format&fit=crop&q=80',
-      },
-      {
-        'name': 'Professional',
-        'url': 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
-      },
-      {
-        'name': 'General',
-        'url': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
-      },
-    ];
+    );
+  }
 
+  void _simulateGallerySelection() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32.r))),
-      builder: (context) => Container(
-        padding: EdgeInsets.all(24.w),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Select Premium Preset Photo',
-              style: GoogleFonts.poppins(
-                fontSize: 20.sp,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textBlack,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24.r))),
+      builder: (context) {
+        final List<String> mockGalleryFiles = [
+          'IMG_3024.jpg',
+          'my_profile_v2.png',
+          'avatar_face.jpg',
+          'selfie_new.jpg'
+        ];
+        return Container(
+          padding: EdgeInsets.all(24.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select Photo from Gallery',
+                style: GoogleFonts.poppins(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textBlack,
+                ),
               ),
-            ),
-            SizedBox(height: 20.h),
-            SizedBox(
-              height: 120.h,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: presets.length,
-                itemBuilder: (context, idx) {
-                  final p = presets[idx];
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _profilePhotoUrl = p['url'];
-                      });
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${p['name']} avatar selected! Save to apply.'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    },
-                    child: Padding(
-                      padding: EdgeInsets.only(right: 16.w),
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 70.w,
-                            height: 70.w,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: _profilePhotoUrl == p['url']
-                                    ? AppColors.primaryPurple
-                                    : Colors.transparent,
-                                width: 3,
-                              ),
-                              image: DecorationImage(
-                                image: NetworkImage(p['url']!),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 8.h),
-                          Text(
-                            p['name']!,
-                            style: GoogleFonts.poppins(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textBlack,
-                            ),
-                          ),
-                        ],
-                      ),
+              SizedBox(height: 16.h),
+              ...mockGalleryFiles.map((filename) => ListTile(
+                leading: const Icon(Icons.image_outlined, color: AppColors.primaryPurple),
+                title: Text(filename, style: GoogleFonts.poppins(fontSize: 14.sp)),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                onTap: () {
+                  setState(() {
+                    _profilePhotoUrl = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80';
+                  });
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Selected $filename from gallery! Save to apply.'),
+                      behavior: SnackBarBehavior.floating,
                     ),
                   );
                 },
-              ),
-            ),
-            SizedBox(height: 16.h),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Center(
-                child: Text(
-                  'Cancel',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.redAccent,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+              )).toList(),
+              SizedBox(height: 16.h),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1067,7 +1010,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildOtherSkillsWrap() {
-    final allSkills = ['Mason', 'Tile Work', 'Plastering', 'Painting', 'Carpenter', 'Plumber', 'Electrician'];
+    final allSkills = ['Bricklayer (Mason)', 'Tile Work', 'Plastering', 'Painting', 'Carpenter', 'Plumber', 'Electrician'];
     return Wrap(
       spacing: 12.w,
       runSpacing: 12.h,

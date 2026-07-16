@@ -6,13 +6,15 @@ import '../../../core/services/auth_state.dart';
 import '../../../core/services/job_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../main.dart';
 import '../widgets/job_card.dart';
+import '../widgets/role_aware_filter_bottom_sheet.dart';
+import '../../../core/services/filter_storage_service.dart';
 import 'job_details_screen.dart';
 import 'confirm_application_screen.dart';
 import 'notifications_screen.dart';
 import 'job_search_screen.dart';
-import '../widgets/filter_bottom_sheet.dart';
-import '../../../../main.dart';
+
 
 class WorkerHomeScreen extends StatefulWidget {
   final VoidCallback? onRequestsTap;
@@ -23,7 +25,7 @@ class WorkerHomeScreen extends StatefulWidget {
 }
 
 class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
-  final List<String> _filters = ['All', 'Near Me', 'Today', 'Construction', 'Farming'];
+  List<String> get _filters => const ['All', 'Near Me', 'Today', 'Food & Grocery', 'Salons & Services'];
   int _selectedFilterIndex = 0;
   List<dynamic> _jobs = [];
   bool _isLoading = false;
@@ -46,11 +48,16 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
     final profile = authState.profile;
     final loc = profile?['location'] as Map<String, dynamic>?;
 
+    final workerFilter = MyApp.userRole == 'Worker' ? await FilterStorageService.instance.getWorkerFilter() : null;
+    final jobFilter = MyApp.userRole != 'Worker' ? await FilterStorageService.instance.getJobFilter() : null;
+
     final result = await JobService.instance.getJobsFeed(
       isWork: MyApp.userRole == 'Worker',
       state: loc?['state'],
       district: loc?['district'],
       mandal: loc?['mandal'],
+      workerFilter: workerFilter,
+      jobFilter: jobFilter,
     );
 
     if (!mounted) return;
@@ -118,7 +125,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Hello, $name!',
+                'Namaste, $name!',
                 style: AppTextStyles.questionTitle.copyWith(fontSize: 22.sp),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -217,13 +224,17 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
         ),
         SizedBox(width: 12.w),
         GestureDetector(
-          onTap: () {
-            showModalBottomSheet(
+          onTap: () async {
+            final result = await showModalBottomSheet(
               context: context,
               isScrollControlled: true,
+              useSafeArea: true,
               backgroundColor: Colors.transparent,
-              builder: (context) => const FilterBottomSheet(),
+              builder: (context) => const RoleAwareFilterBottomSheet(),
             );
+            if (result != null) {
+               _fetchJobs();
+            }
           },
           child: Container(
             width: 52.h,
@@ -349,13 +360,16 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
         return posted.startsWith(todayStr);
       }).toList();
     } else if (_selectedFilterIndex == 3) {
-      // Construction
-      filtered = filtered.where((job) => job['category']?.toString().toLowerCase() == 'construction').toList();
-    } else if (_selectedFilterIndex == 4) {
-      // Farming / Agriculture
+      // Food & Grocery
       filtered = filtered.where((job) {
         final cat = job['category']?.toString().toLowerCase() ?? '';
-        return cat == 'agriculture' || cat == 'farming' || cat == 'farm';
+        return cat.contains('food') || cat.contains('grocery');
+      }).toList();
+    } else if (_selectedFilterIndex == 4) {
+      // Salons & Services
+      filtered = filtered.where((job) {
+        final cat = job['category']?.toString().toLowerCase() ?? '';
+        return cat.contains('salon') || cat.contains('service');
       }).toList();
     }
 
@@ -364,7 +378,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 32.h),
           child: Text(
-            'No matching work found.',
+            MyApp.userRole == 'Worker' ? 'No matching work found.' : 'No matching jobs found.',
             style: GoogleFonts.poppins(color: AppColors.textLightGray, fontSize: 14.sp),
           ),
         ),
@@ -397,6 +411,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
           'description': job['description'] ?? '',
           'requirements': job['requirements'] ?? [],
           'isExpired': isExpired,
+          'resumeRequired': job['resumeRequired'] ?? false,
         };
 
         return JobCard(

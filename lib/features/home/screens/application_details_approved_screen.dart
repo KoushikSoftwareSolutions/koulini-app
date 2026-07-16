@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../chat/screens/chat_detail_screen.dart';
 import '../../../../main.dart';
 
 class ApprovedApplicationDetailsScreen extends StatelessWidget {
@@ -55,7 +55,7 @@ class ApprovedApplicationDetailsScreen extends StatelessWidget {
               _buildEmployerCard(context),
               SizedBox(height: 32.h),
               Text(
-                'Work Details',
+                MyApp.userRole == 'Worker' ? 'Work Details' : 'Job Details',
                 style: GoogleFonts.poppins(
                   fontSize: 18.sp,
                   fontWeight: FontWeight.bold,
@@ -69,7 +69,7 @@ class ApprovedApplicationDetailsScreen extends StatelessWidget {
                 child: Text(
                   MyApp.userRole == 'Worker'
                       ? 'Show this screen to the business owner when you reach the work site.'
-                      : 'Show this screen to the employer when you reach the work site.',
+                      : 'Show this screen to the employer when you report for work.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     fontSize: 13.sp,
@@ -201,18 +201,32 @@ class ApprovedApplicationDetailsScreen extends StatelessWidget {
               ),
               SizedBox(width: 12.w),
               Expanded(
-                child: _buildIconButton(Icons.message_rounded, 'Message', AppColors.primaryPurple, () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ChatDetailScreen(
-                        worker: {
-                          'name': application['company'] ?? 'Vijay Constructions',
-                          'avatar': 'https://i.pravatar.cc/150?u=emp',
-                        },
+                child: _buildIconButton(Icons.chat_bubble_outline_rounded, 'WhatsApp', const Color(0xFF25D366), () async {
+                  final phone = application['phone'] ?? '';
+                  final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+                  if (cleanPhone.isNotEmpty) {
+                    final url = 'https://wa.me/$cleanPhone';
+                    final uri = Uri.parse(url);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    } else {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Could not launch WhatsApp.'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Phone number not available.'),
+                        backgroundColor: Colors.red,
                       ),
-                    ),
-                  );
+                    );
+                  }
                 }),
               ),
             ],
@@ -251,6 +265,11 @@ class ApprovedApplicationDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildWorkDetails() {
+    final bool isWorker = MyApp.userRole == 'Worker';
+    final location = application['location'] ?? 'Machilipatnam, Krishna';
+    final salary = application['salary'] ?? '700/day';
+    final duration = application['duration'] ?? 'Immediate';
+
     return Container(
       padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
@@ -259,11 +278,23 @@ class ApprovedApplicationDetailsScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _buildInfoRow(Icons.location_on_outlined, 'Work Location', 'Machilipatnam, Krishna'),
+          _buildInfoRow(
+            Icons.location_on_outlined, 
+            isWorker ? 'Work Location' : 'Job Location', 
+            location.toString()
+          ),
           Divider(height: 24.h, color: Colors.black.withValues(alpha: 0.03)),
-          _buildInfoRow(Icons.payments_outlined, 'Daily Wage', 'Rs. 700/day'),
+          _buildInfoRow(
+            Icons.payments_outlined, 
+            isWorker ? 'Daily Wage' : 'Salary', 
+            salary.toString().startsWith('Rs.') ? salary.toString() : 'Rs. $salary'
+          ),
           Divider(height: 24.h, color: Colors.black.withValues(alpha: 0.03)),
-          _buildInfoRow(Icons.calendar_today_outlined, 'Start Date', 'Immediate'),
+          _buildInfoRow(
+            Icons.calendar_today_outlined, 
+            isWorker ? 'Start Date' : 'Duration', 
+            duration.toString()
+          ),
         ],
       ),
     );

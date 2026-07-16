@@ -206,10 +206,16 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
   }
 
   Widget _buildApplicantCard(BuildContext context, Map<String, dynamic> app) {
-    final worker = app['worker'] as Map<String, dynamic>? ?? {};
-    final name = worker['name'] ?? 'Unknown';
-    final skill = worker['primarySkill'] ?? 'General Labour';
-    final photo = worker['profilePhoto'] as String? ?? 'https://i.pravatar.cc/150?u=$name';
+    final workerProfile = app['workerProfileId'] as Map<String, dynamic>? ?? {};
+    final manager = app['appliedByUserId'] as Map<String, dynamic>?;
+    
+    final name = workerProfile['name'] ?? workerProfile['ownerName'] ?? 'Unknown Worker';
+    final skill = workerProfile['primarySkill'] ?? 'General Labour';
+    final photo = workerProfile['profilePhoto'] as String? ?? 'https://i.pravatar.cc/150?u=$name';
+    
+    final bool isManaged = manager != null && workerProfile['managerUserId'] != null;
+    final String managerName = manager?['name'] ?? manager?['phone'] ?? 'User';
+    final String relationship = workerProfile['relationship'] ?? 'Managed';
 
     return GestureDetector(
       onTap: () async {
@@ -218,12 +224,12 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
           MaterialPageRoute(
             builder: (context) => ApplicantDetailsScreen(
               isWork: widget.isWork,
-              applicant: app, // passes application object (includes worker and status)
+              applicant: app, 
               job: widget.job,
             ),
           ),
         );
-        _loadApplicants(); // reload list in case status changed in details screen
+        _loadApplicants(); 
       },
       child: Container(
         margin: EdgeInsets.only(bottom: 16.h),
@@ -268,6 +274,24 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
                       color: AppColors.textLightGray,
                     ),
                   ),
+                  if (isManaged) ...[
+                    SizedBox(height: 4.h),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4.r),
+                      ),
+                      child: Text(
+                        'Managed By: $managerName ($relationship)',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10.sp,
+                          color: Colors.orange.shade800,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

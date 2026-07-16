@@ -24,11 +24,7 @@ class _MainWrapperState extends State<MainWrapper> {
     _currentIndex = widget.initialIndex;
   }
 
-  final List<Widget> _screens = [
-    const WorkerHomeScreen(),
-    const MyApplicationsScreen(),
-    const WorkerProfileScreen(),
-  ];
+
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +53,7 @@ class _MainWrapperState extends State<MainWrapper> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _buildNavItem(0, Icons.home_rounded, 'Home'),
-            _buildNavItem(1, Icons.assignment_rounded, MyApp.userRole == 'Worker' ? 'My Work' : 'My Jobs'),
+            _buildNavItem(1, Icons.assignment_rounded, MyApp.userRole == 'Worker' ? 'My Work' : (MyApp.userRole == 'Jobs' ? 'My Job' : 'My Jobs')),
             _buildNavItem(2, Icons.person_rounded, 'Profile'),
           ],
         ),

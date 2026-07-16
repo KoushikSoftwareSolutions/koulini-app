@@ -20,6 +20,26 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
   String _selectedLanguage = 'English';
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authState = Provider.of<AuthState>(context, listen: false);
+      final lang = authState.language ?? 'en';
+      final langMap = {
+        'en': 'English',
+        'te': 'తెలుగు (Telugu)',
+        'hi': 'हिन्दी (Hindi)',
+        'ta': 'தமிழ் (Tamil)',
+        'ml': 'മലയാളം (Malayalam)',
+        'kn': 'ಕನ್ನಡ (Kannada)',
+      };
+      setState(() {
+        _selectedLanguage = langMap[lang] ?? 'English';
+      });
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -141,12 +161,34 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
           children: [
             CircleAvatar(
               radius: 30.r,
-              backgroundColor: AppColors.primaryPurple.withValues(alpha: 0.1),
+              backgroundColor: (profile?['profilePhoto'] != null && profile!['profilePhoto'].toString().isNotEmpty)
+                  ? Colors.transparent
+                  : (() {
+                      final nameToUse = businessName.trim().isNotEmpty ? businessName : ownerName;
+                      final int colorCode = nameToUse.codeUnits.fold(0, (prev, element) => prev + element);
+                      final List<Color> colors = [
+                        const Color(0xFF7C3AED),
+                        const Color(0xFFEF4444),
+                        const Color(0xFF3B82F6),
+                        const Color(0xFF10B981),
+                        const Color(0xFFF59E0B),
+                        const Color(0xFFEC4899),
+                        const Color(0xFF06B6D4),
+                      ];
+                      return colors[colorCode % colors.length];
+                    })(),
               backgroundImage: (profile?['profilePhoto'] != null && profile!['profilePhoto'].toString().isNotEmpty)
                   ? NetworkImage(profile['profilePhoto'].toString())
                   : null,
               child: (profile?['profilePhoto'] == null || profile!['profilePhoto'].toString().isEmpty)
-                  ? Icon(Icons.business_rounded, color: AppColors.primaryPurple, size: 28.sp)
+                  ? Text(
+                      (businessName.trim().isNotEmpty ? businessName : ownerName).trim().substring(0, 1).toUpperCase(),
+                      style: GoogleFonts.poppins(
+                        fontSize: 22.sp,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    )
                   : null,
             ),
             SizedBox(width: 16.w),
@@ -337,6 +379,16 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
     return InkWell(
       onTap: () {
         setState(() => _selectedLanguage = lang);
+        final codeMap = {
+          'English': 'en',
+          'తెలుగు (Telugu)': 'te',
+          'हिन्दी (Hindi)': 'hi',
+          'தமிழ் (Tamil)': 'ta',
+          'മലയാളം (Malayalam)': 'ml',
+          'ಕನ್ನಡ (Kannada)': 'kn',
+        };
+        final code = codeMap[lang] ?? 'en';
+        Provider.of<AuthState>(context, listen: false).setLanguage(code);
         Navigator.pop(context);
       },
       child: Container(

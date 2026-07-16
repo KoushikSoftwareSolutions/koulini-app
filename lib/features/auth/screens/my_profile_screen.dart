@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/premium_image.dart';
 
 import 'edit_profile_screen.dart';
+import '../../../../main.dart';
 
 class MyProfileScreen extends StatelessWidget {
   const MyProfileScreen({super.key});
@@ -25,7 +26,7 @@ class MyProfileScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'MY Profile',
+          MyApp.userRole == 'Worker' ? 'MY Profile' : 'Job Profile',
           style: GoogleFonts.poppins(
             fontSize: 20.sp,
             fontWeight: FontWeight.bold,
@@ -73,8 +74,8 @@ class MyProfileScreen extends StatelessWidget {
 
   Widget _buildProfileHeader(AuthState authState) {
     final profile = authState.profile;
-    final String name = profile?['name'] ?? 'Worker';
-    final String title = profile?['primarySkill'] ?? profile?['customSkill'] ?? 'General Worker';
+    final String name = profile?['name'] ?? (MyApp.userRole == 'Worker' ? 'Worker' : 'Applicant');
+    final String title = profile?['primarySkill'] ?? profile?['customSkill'] ?? (MyApp.userRole == 'Worker' ? 'General Worker' : 'Professional');
     final loc = profile?['location'] as Map<String, dynamic>?;
     final String location = loc != null 
         ? '${loc['village'] ?? loc['mandal'] ?? ''}, ${loc['district'] ?? ''}'.trim()
@@ -91,6 +92,7 @@ class MyProfileScreen extends StatelessWidget {
         children: [
           PremiumImage(
             imageUrl: avatar,
+            displayName: name,
             width: 108.r,
             height: 108.r,
             isAvatar: true,
@@ -252,6 +254,7 @@ class MyProfileScreen extends StatelessWidget {
 
   Widget _buildWorkHistorySection(AuthState authState) {
     final historyList = authState.workHistory ?? [];
+    final bool isWorker = MyApp.userRole == 'Worker';
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -259,7 +262,7 @@ class MyProfileScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Verified Work History',
+            isWorker ? 'Verified Work History' : 'Verified Job History',
             style: GoogleFonts.poppins(
               fontSize: 18.sp,
               fontWeight: FontWeight.bold,
@@ -269,7 +272,7 @@ class MyProfileScreen extends StatelessWidget {
           SizedBox(height: 16.h),
           if (historyList.isEmpty)
             Text(
-              'No verified work history yet.',
+              isWorker ? 'No verified work history yet.' : 'No verified job history yet.',
               style: GoogleFonts.poppins(
                 fontSize: 14.sp,
                 color: AppColors.textLightGray,
@@ -277,8 +280,8 @@ class MyProfileScreen extends StatelessWidget {
             )
           else
             ...historyList.map((item) {
-              final company = item['companyName'] ?? 'Business Owner';
-              final title = item['title'] ?? 'Worker';
+              final company = item['companyName'] ?? (isWorker ? 'Business Owner' : 'Employer');
+              final title = item['title'] ?? (isWorker ? 'Worker' : 'Employee');
               final duration = item['duration'] ?? 'Contract';
               final year = item['year'] ?? '';
               return Padding(

@@ -25,11 +25,12 @@ class ApplicationService {
     );
   }
 
-  Future<ApiResult<Map<String, dynamic>>> applyToJob(String jobId) {
+  Future<ApiResult<Map<String, dynamic>>> applyToJob(String jobId, {String? workerProfileId}) {
     return _client.post(
       '/applications',
       {
         'jobId': jobId,
+        if (workerProfileId != null) 'workerProfileId': workerProfileId,
       },
       auth: true,
     );

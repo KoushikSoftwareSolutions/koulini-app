@@ -86,7 +86,7 @@ class JobDetailsScreen extends StatelessWidget {
                       ),
                       SizedBox(height: 12.h),
                       Text(
-                        'We need 3 experienced masons for residential construction in Machilipatnam. 7AM–5PM shift. Meals provided on site. Daily cash payment.',
+                        job['description'] ?? 'No description provided for this position.',
                         style: GoogleFonts.poppins(
                           fontSize: 14.sp,
                           color: AppColors.textGray.withValues(alpha: 0.8),
@@ -101,13 +101,18 @@ class JobDetailsScreen extends StatelessWidget {
                         style: AppTextStyles.questionTitle.copyWith(fontSize: 18.sp),
                       ),
                       SizedBox(height: 16.h),
-                      _buildRequirementRow('2+ years masonry experience'),
-                      SizedBox(height: 12.h),
-                      _buildRequirementRow('Own basic tools preferred'),
-                      SizedBox(height: 12.h),
-                      _buildRequirementRow('Available for all 15 days'),
-                      SizedBox(height: 12.h),
-                      _buildRequirementRow('Physically fit'),
+                      if (job['requirements'] != null && (job['requirements'] as List).isNotEmpty)
+                        ... (job['requirements'] as List).map((req) => Padding(
+                          padding: EdgeInsets.only(bottom: 12.h),
+                          child: _buildRequirementRow(req.toString()),
+                        )).toList()
+                      else ...[
+                        _buildRequirementRow(isWorker ? 'Prior experience preferred' : 'Relevant qualifications required'),
+                        SizedBox(height: 12.h),
+                        _buildRequirementRow('Available immediately'),
+                        SizedBox(height: 12.h),
+                        _buildRequirementRow('Reliable and dedicated'),
+                      ],
                       
                       SizedBox(height: 32.h),
                     ],

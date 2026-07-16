@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/services/auth_state.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/premium_image.dart';
 import 'my_profile_screen.dart';
 import '../../../../main.dart';
@@ -12,18 +11,15 @@ import '../../../../main.dart';
 import 'edit_profile_screen.dart';
 import 'language_selection_screen.dart';
 import 'worker_help_faq_screen.dart';
-import 'my_status_screen.dart';
-import '../../home/screens/job_search_screen.dart';
-import '../../employer/screens/hire_workers_screen.dart';
+
+import 'sign_in_screen.dart';
+import 'managed_profiles_screen.dart';
 
 class WorkerProfileScreen extends StatelessWidget {
   const WorkerProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final authState = Provider.of<AuthState>(context);
-    final profile = authState.profile;
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -59,14 +55,7 @@ class WorkerProfileScreen extends StatelessWidget {
                     MaterialPageRoute(builder: (context) => const EditProfileScreen()),
                   ),
                 ),
-                _SettingsItem(
-                  icon: Icons.notifications_active_outlined, 
-                  title: 'My Status',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const MyStatusScreen()),
-                  ),
-                ),
+
                 _SettingsItem(
                   icon: Icons.translate_rounded, 
                   title: 'Language',
@@ -75,28 +64,21 @@ class WorkerProfileScreen extends StatelessWidget {
                     MaterialPageRoute(builder: (context) => const LanguageSelectionScreen(isFromSettings: true)),
                   ),
                 ),
-                _SettingsItem(
-                  icon: Icons.thumb_up_alt_outlined, 
-                  title: MyApp.userRole == 'Worker' ? 'Work Recommendation' : 'Job Recommendation',
-                  onTap: () {
-                    if (MyApp.userRole == 'Worker') {
-                      final skill = profile?['primarySkill'] ?? 'Mason';
+                if (MyApp.userRole == 'Worker') ...[
+                  _SettingsItem(
+                    icon: Icons.people_outline_rounded, 
+                    title: 'My Worker Profiles',
+                    onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => JobSearchScreen(initialQuery: skill),
+                          builder: (context) => const ManagedProfilesScreen(),
                         ),
                       );
-                    } else {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const HireWorkersScreen(),
-                        ),
-                      );
-                    }
-                  },
-                ),
+                    },
+                  ),
+
+                ],
               ]),
               SizedBox(height: 24.h),
               _buildSectionTitle('Support'),
@@ -124,7 +106,7 @@ class WorkerProfileScreen extends StatelessWidget {
     final authState = Provider.of<AuthState>(context);
     final profile = authState.profile;
     final String name = profile?['name'] ?? profile?['ownerName'] ?? 'User';
-    final String phone = profile?['phone'] ?? authState.pendingPhone ?? '+91 XXXXX XXXXX';
+    final String phone = profile?['phone'] ?? authState.phone ?? authState.pendingPhone ?? '+91 XXXXX XXXXX';
     final avatar = (profile?['profilePhoto'] != null && profile!['profilePhoto'].toString().isNotEmpty)
         ? profile['profilePhoto'].toString()
         : 'https://i.pravatar.cc/150?u=${profile?['_id'] ?? name}';
@@ -157,6 +139,7 @@ class WorkerProfileScreen extends StatelessWidget {
           children: [
             PremiumImage(
               imageUrl: avatar,
+              displayName: name,
               width: 60.r,
               height: 60.r,
               isAvatar: true,
@@ -182,7 +165,7 @@ class WorkerProfileScreen extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    MyApp.userRole == 'Worker' ? 'Workers account' : 'Employee account',
+                    MyApp.userRole == 'Worker' ? 'Workers account' : 'Job Account',
                     style: GoogleFonts.poppins(
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w600,
@@ -289,7 +272,7 @@ class WorkerProfileScreen extends StatelessWidget {
           await authState.signOut();
           if (context.mounted) {
             Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const MyApp()),
+              MaterialPageRoute(builder: (context) => const SignInScreen()),
               (route) => false,
             );
           }

@@ -2,23 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../../main.dart';
 
 class WorkerHelpFaqScreen extends StatelessWidget {
   const WorkerHelpFaqScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final bool isWorker = MyApp.userRole == 'Worker';
+
     final faqs = [
       {
-        'category': 'Finding Work',
+        'category': isWorker ? 'Finding Work' : 'Finding Jobs',
         'questions': [
           {
-            'q': 'How do I apply for work?',
-            'a': 'Tap on any work card and press the Apply Now button. Your profile will be shared with the business owner for review.'
+            'q': isWorker ? 'How do I apply for work?' : 'How do I apply for a job?',
+            'a': isWorker 
+                ? 'Tap on any work card and press the Apply Now button. Your profile will be shared with the business owner for review.'
+                : 'Tap on any job card and press the Apply Now button. Your profile will be shared with the employer for review.'
           },
           {
-            'q': 'How will I be Paid?',
-            'a': 'Payment is arranged directly with the business owner. Koulini helps track the agreed daily rate to prevent disputes.'
+            'q': isWorker ? 'How will I be Paid?' : 'How will I be paid?',
+            'a': isWorker 
+                ? 'Payment is arranged directly with the business owner. Koulini helps track the agreed daily rate to prevent disputes.'
+                : 'Salary/payment is arranged directly with the employer. Koulini helps track the agreed rate to prevent disputes.'
           },
         ]
       },
@@ -30,8 +37,10 @@ class WorkerHelpFaqScreen extends StatelessWidget {
             'a': 'Yes! Go to Profile > Edit Profile > Skills to update your skill categories and add new ones.'
           },
           {
-            'q': 'How do I add my previous work?',
-            'a': 'Go to Edit Profile and scroll to the "Work Gallery" section. You can add titles, descriptions, and photos of your best work to attract more business owners.'
+            'q': isWorker ? 'How do I add my previous work?' : 'How do I add my previous job experience?',
+            'a': isWorker 
+                ? 'Go to Edit Profile and scroll to the "Work Gallery" section. You can add titles, descriptions, and photos of your best work to attract more business owners.'
+                : 'Go to Edit Profile and scroll to the "Job History" section. You can add company names, years, and descriptions of your previous roles to attract more employers.'
           },
         ]
       },
@@ -39,8 +48,10 @@ class WorkerHelpFaqScreen extends StatelessWidget {
         'category': 'Support',
         'questions': [
           {
-            'q': 'What if the business owner doesn\'t respond?',
-            'a': 'Contact our support team after 48 hours. We will follow up with the business owner on your behalf.'
+            'q': isWorker ? 'What if the business owner doesn\'t respond?' : 'What if the employer doesn\'t respond?',
+            'a': isWorker 
+                ? 'Contact our support team after 48 hours. We will follow up with the business owner on your behalf.'
+                : 'Contact our support team after 48 hours. We will follow up with the employer on your behalf.'
           },
           {
             'q': 'How to delete my account?',

@@ -15,7 +15,7 @@ class GenderSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final genders = ['Male', 'Female', 'Other'];
+    final genders = ['Female', 'Male', 'Other'];
 
     return Row(
       children: genders.map((gender) {

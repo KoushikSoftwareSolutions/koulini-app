@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/services/auth_state.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_text_styles.dart';
+
 
 class EditBusinessScreen extends StatefulWidget {
   const EditBusinessScreen({super.key});
@@ -77,9 +77,30 @@ class _EditBusinessScreenState extends State<EditBusinessScreen> {
                           width: 100.r,
                           height: 100.r,
                           decoration: BoxDecoration(
-                            color: AppColors.primaryPurple.withValues(alpha: 0.1),
+                            color: _profilePhotoUrl != null
+                                ? Colors.transparent
+                                : (() {
+                                    final nameToUse = _businessNameController.text.trim().isNotEmpty
+                                        ? _businessNameController.text
+                                        : _ownerNameController.text;
+                                    final int colorCode = nameToUse.codeUnits.fold(0, (prev, element) => prev + element);
+                                    final List<Color> colors = [
+                                      const Color(0xFF7C3AED),
+                                      const Color(0xFFEF4444),
+                                      const Color(0xFF3B82F6),
+                                      const Color(0xFF10B981),
+                                      const Color(0xFFF59E0B),
+                                      const Color(0xFFEC4899),
+                                      const Color(0xFF06B6D4),
+                                    ];
+                                    return colors[colorCode % colors.length];
+                                  })(),
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.primaryPurple.withValues(alpha: 0.2), width: 2),
+                            border: Border.all(
+                                color: _profilePhotoUrl != null
+                                    ? AppColors.primaryPurple.withValues(alpha: 0.2)
+                                    : Colors.transparent,
+                                width: 2),
                             image: _profilePhotoUrl != null
                                 ? DecorationImage(
                                     image: NetworkImage(_profilePhotoUrl!),
@@ -89,7 +110,19 @@ class _EditBusinessScreenState extends State<EditBusinessScreen> {
                           ),
                           child: _profilePhotoUrl == null
                               ? Center(
-                                  child: Icon(Icons.business_rounded, color: AppColors.primaryPurple, size: 40.sp),
+                                  child: Text(
+                                    (_businessNameController.text.trim().isNotEmpty
+                                            ? _businessNameController.text
+                                            : _ownerNameController.text)
+                                        .trim()
+                                        .substring(0, 1)
+                                        .toUpperCase(),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 36.sp,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
                                 )
                               : null,
                         ),
@@ -209,7 +242,7 @@ class _EditBusinessScreenState extends State<EditBusinessScreen> {
               title: 'Take Photo',
               onTap: () {
                 Navigator.pop(context);
-                _showPresetPicker();
+                _simulateCameraCapture();
               },
             ),
             _buildSourceOption(
@@ -217,9 +250,25 @@ class _EditBusinessScreenState extends State<EditBusinessScreen> {
               title: 'Choose from Gallery',
               onTap: () {
                 Navigator.pop(context);
-                _showPresetPicker();
+                _simulateGallerySelection();
               },
             ),
+            if (_profilePhotoUrl != null) ...[
+              _buildSourceOption(
+                icon: Icons.delete_rounded,
+                title: 'Remove Photo',
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() => _profilePhotoUrl = null);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Business photo removed. Save to apply.'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+              ),
+            ],
             SizedBox(height: 16.h),
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -240,127 +289,93 @@ class _EditBusinessScreenState extends State<EditBusinessScreen> {
     );
   }
 
-  void _showPresetPicker() {
-    final presets = [
-      {
-        'name': 'Construction',
-        'url': 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=400&auto=format&fit=crop&q=80',
+  void _simulateCameraCapture() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        Future.delayed(const Duration(seconds: 1), () {
+          if (context.mounted) {
+            Navigator.pop(context);
+            setState(() {
+              _profilePhotoUrl = 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=400&auto=format&fit=crop&q=80';
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Photo captured from camera! Save to apply.'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        });
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: AppColors.primaryPurple),
+              SizedBox(height: 16.h),
+              Text(
+                'Opening Camera...',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        );
       },
-      {
-        'name': 'Tech / Office',
-        'url': 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&auto=format&fit=crop&q=80',
-      },
-      {
-        'name': 'Corporate',
-        'url': 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&auto=format&fit=crop&q=80',
-      },
-      {
-        'name': 'Renovation',
-        'url': 'https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&auto=format&fit=crop&q=80',
-      },
-      {
-        'name': 'Business Logo',
-        'url': 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&auto=format&fit=crop&q=80',
-      },
-      {
-        'name': 'Services',
-        'url': 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=400&auto=format&fit=crop&q=80',
-      },
-    ];
+    );
+  }
 
+  void _simulateGallerySelection() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32.r))),
-      builder: (context) => Container(
-        padding: EdgeInsets.all(24.w),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Select Premium Preset Photo',
-              style: GoogleFonts.poppins(
-                fontSize: 20.sp,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textBlack,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24.r))),
+      builder: (context) {
+        final List<String> mockGalleryFiles = [
+          'IMG_8849.png',
+          'business_logo.jpg',
+          'store_front.png',
+          'office_building.jpg'
+        ];
+        return Container(
+          padding: EdgeInsets.all(24.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select Photo from Gallery',
+                style: GoogleFonts.poppins(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textBlack,
+                ),
               ),
-            ),
-            SizedBox(height: 20.h),
-            SizedBox(
-              height: 120.h,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: presets.length,
-                itemBuilder: (context, idx) {
-                  final p = presets[idx];
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _profilePhotoUrl = p['url'];
-                      });
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${p['name']} photo selected! Save to apply.'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    },
-                    child: Padding(
-                      padding: EdgeInsets.only(right: 16.w),
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 70.w,
-                            height: 70.w,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: _profilePhotoUrl == p['url']
-                                    ? AppColors.primaryPurple
-                                    : Colors.transparent,
-                                width: 3,
-                              ),
-                              image: DecorationImage(
-                                image: NetworkImage(p['url']!),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 8.h),
-                          Text(
-                            p['name']!,
-                            style: GoogleFonts.poppins(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textBlack,
-                            ),
-                          ),
-                        ],
-                      ),
+              SizedBox(height: 16.h),
+              ...mockGalleryFiles.map((filename) => ListTile(
+                leading: const Icon(Icons.image_outlined, color: AppColors.primaryPurple),
+                title: Text(filename, style: GoogleFonts.poppins(fontSize: 14.sp)),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                onTap: () {
+                  setState(() {
+                    _profilePhotoUrl = 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&auto=format&fit=crop&q=80';
+                  });
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Selected $filename from gallery! Save to apply.'),
+                      behavior: SnackBarBehavior.floating,
                     ),
                   );
                 },
-              ),
-            ),
-            SizedBox(height: 16.h),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Center(
-                child: Text(
-                  'Cancel',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.redAccent,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+              )).toList(),
+              SizedBox(height: 16.h),
+            ],
+          ),
+        );
+      },
     );
   }
 

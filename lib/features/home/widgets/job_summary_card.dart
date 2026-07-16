@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../../main.dart';
 
 class JobSummaryCard extends StatelessWidget {
   final String title;
@@ -87,7 +88,7 @@ class JobSummaryCard extends StatelessWidget {
           SizedBox(height: 12.h),
           _buildInfoRow(Icons.access_time_outlined, 'Duration', duration),
           SizedBox(height: 12.h),
-          _buildInfoRow(Icons.people_outline_rounded, 'Workers', workers),
+          _buildInfoRow(Icons.people_outline_rounded, MyApp.userRole == 'Worker' ? 'Workers' : 'Openings', workers),
           SizedBox(height: 12.h),
           _buildInfoRow(Icons.description_outlined, 'Posted', posted),
         ],

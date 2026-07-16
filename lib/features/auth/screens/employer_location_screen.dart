@@ -21,6 +21,14 @@ class _EmployerLocationScreenState extends State<EmployerLocationScreen> {
   final _mandalController = TextEditingController();
   final _villageController = TextEditingController();
 
+  String? _selectedState;
+  String? _selectedDistrict;
+  String? _selectedMandal;
+
+  final List<String> _states = ['Andhra Pradesh', 'Telangana', 'Karnataka', 'Tamil Nadu'];
+  final List<String> _districts = ['Krishna', 'Guntur', 'NTR', 'Visakhapatnam'];
+  final List<String> _mandals = ['Machilipatnam', 'Pedana', 'Gudivada', 'Avanigadda'];
+
   @override
   void dispose() {
     _stateController.dispose();
@@ -30,10 +38,50 @@ class _EmployerLocationScreenState extends State<EmployerLocationScreen> {
     super.dispose();
   }
 
+  Widget _buildDropdownField({
+    required String? value,
+    required List<String> items,
+    required String hintText,
+    required ValueChanged<String?> onChanged,
+  }) {
+    final list = List<String>.from(items);
+    if (value != null && !list.contains(value)) {
+      list.add(value);
+    }
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.2)),
+      ),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButtonFormField<String>(
+          value: value,
+          hint: Text(
+            hintText,
+            style: GoogleFonts.poppins(color: AppColors.textLightGray, fontSize: 14.sp),
+          ),
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            isDense: true,
+          ),
+          isExpanded: true,
+          icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textGray, size: 22.sp),
+          style: GoogleFonts.poppins(fontSize: 15.sp, color: AppColors.textBlack),
+          items: list.map((item) {
+            return DropdownMenuItem(value: item, child: Text(item));
+          }).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleFinishEmployerRegistration(BuildContext context) async {
-    final state = _stateController.text.trim();
-    final district = _districtController.text.trim();
-    final mandal = _mandalController.text.trim();
+    final state = _selectedState ?? '';
+    final district = _selectedDistrict ?? '';
+    final mandal = _selectedMandal ?? '';
     final village = _villageController.text.trim();
 
     if (state.isEmpty || district.isEmpty || mandal.isEmpty) {
@@ -119,6 +167,9 @@ class _EmployerLocationScreenState extends State<EmployerLocationScreen> {
         _districtController.text = 'Krishna';
         _mandalController.text = 'Machilipatnam';
         _villageController.text = 'Chilakalapudi';
+        _selectedState = 'Andhra Pradesh';
+        _selectedDistrict = 'Krishna';
+        _selectedMandal = 'Machilipatnam';
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -168,13 +219,28 @@ class _EmployerLocationScreenState extends State<EmployerLocationScreen> {
                     ),
                     SizedBox(height: 32.h),
                     _buildLabel('State'),
-                    _buildTextField(_stateController, 'e.g. Andhra Pradesh'),
+                    _buildDropdownField(
+                      value: _selectedState,
+                      items: _states,
+                      hintText: 'e.g. Andhra Pradesh',
+                      onChanged: (val) => setState(() => _selectedState = val),
+                    ),
                     SizedBox(height: 16.h),
                     _buildLabel('District'),
-                    _buildTextField(_districtController, 'e.g. Krishna'),
+                    _buildDropdownField(
+                      value: _selectedDistrict,
+                      items: _districts,
+                      hintText: 'e.g. Krishna',
+                      onChanged: (val) => setState(() => _selectedDistrict = val),
+                    ),
                     SizedBox(height: 16.h),
                     _buildLabel('Mandal / Tahsil'),
-                    _buildTextField(_mandalController, 'e.g. Machilipatnam'),
+                    _buildDropdownField(
+                      value: _selectedMandal,
+                      items: _mandals,
+                      hintText: 'e.g. Machilipatnam',
+                      onChanged: (val) => setState(() => _selectedMandal = val),
+                    ),
                     SizedBox(height: 16.h),
                     _buildLabel('Village / Area'),
                     _buildTextField(_villageController, 'e.g. Chilakalapudi'),

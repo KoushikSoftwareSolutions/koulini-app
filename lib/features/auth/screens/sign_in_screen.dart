@@ -4,10 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/auth_state.dart';
+import '../../../core/enums/user_role.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../widgets/phone_input_field.dart';
 import 'otp_verification_screen.dart';
+import 'pin_login_screen.dart';
 import '../../../../main.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -35,12 +37,42 @@ class _SignInScreenState extends State<SignInScreen> {
     setState(() => _isLoading = true);
 
     final authState = Provider.of<AuthState>(context, listen: false);
-    // Sync the global userRole to AuthState
-    authState.role = MyApp.userRole;
+    final role = authState.pendingRole?.value ?? 'Worker';
 
+    // 1. Check if user exists and has a PIN
+    final checkResult = await AuthService.instance.checkUser(phone: phone);
+    
+    if (checkResult.success) {
+      final data = checkResult.data;
+      final exists = data?['exists'] == true;
+      final hasPin = data?['hasPin'] == true;
+      
+      if (exists && hasPin && mounted) {
+        setState(() => _isLoading = false);
+        Navigator.push(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => 
+              PinLoginScreen(phoneNumber: phone),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(1, 0),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
+              );
+            },
+          ),
+        );
+        return;
+      }
+    }
+
+    // 2. Fallback / No PIN -> Send OTP
     final result = await AuthService.instance.sendOtp(
       phone: phone,
-      role: authState.role ?? 'Worker',
+      role: role,
       language: authState.language ?? 'en',
     );
 
@@ -48,7 +80,6 @@ class _SignInScreenState extends State<SignInScreen> {
 
     if (result.success) {
       if (mounted) {
-        // If developer/test mode returns devOtp, we can print or show a toast/dialog for developer ease
         final devOtp = result.data?['devOtp'];
         if (devOtp != null) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -93,107 +124,126 @@ class _SignInScreenState extends State<SignInScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: Padding(
-          padding: EdgeInsets.only(left: 8.w),
-          child: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textBlack, size: 24.sp),
-            onPressed: () => Navigator.pop(context),
+    return PopScope(
+      canPop: Navigator.canPop(context),
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AppStartupWrapper()),
+        );
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: Padding(
+            padding: EdgeInsets.only(left: 8.w),
+            child: IconButton(
+              icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textBlack, size: 24.sp),
+              onPressed: () {
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                } else {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AppStartupWrapper()),
+                  );
+                }
+              },
+            ),
           ),
         ),
-      ),
-      body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: 20.h),
-                    Text(
-                      'Sign In',
-                      style: AppTextStyles.logoTitle.copyWith(
-                        fontSize: 28.sp,
-                      ),
-                    ),
-                    SizedBox(height: 32.h),
-                    Text(
-                      'What is your phone number?',
-                      style: AppTextStyles.questionTitle.copyWith(
-                        fontSize: 24.sp,
-                      ),
-                    ),
-                    SizedBox(height: 12.h),
-                    Text(
-                      'We will send a 6-digit OTP. No password needed.',
-                      style: AppTextStyles.subtitle.copyWith(
-                        color: AppColors.textGray.withValues(alpha: 0.8),
-                      ),
-                    ),
-                    SizedBox(height: 48.h),
-                    // Phone Input
-                    PhoneInputField(
-                      controller: _phoneController,
-                      onChanged: (val) {
-                        setState(() {
-                          // Validation: Exactly 10 digits AND starts with 6, 7, 8, or 9
-                          final trimmed = val.trim();
-                          _isButtonEnabled = trimmed.length == 10 && 
-                              ['6', '7', '8', '9'].contains(trimmed[0]);
-                        });
-                      },
-                    ),
-                    SizedBox(height: 32.h),
-                    // Send OTP Button
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      child: ElevatedButton(
-                        onPressed: (_isButtonEnabled && !_isLoading) ? _handleSendOtp : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primaryPurple,
-                          disabledBackgroundColor: AppColors.primaryPurple.withValues(alpha: 0.2),
-                          foregroundColor: Colors.white,
-                          disabledForegroundColor: Colors.white.withValues(alpha: 0.5),
-                          minimumSize: Size(double.infinity, 56.h),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16.r),
-                          ),
-                          elevation: _isButtonEnabled ? 8 : 0,
-                          shadowColor: AppColors.primaryPurple.withValues(alpha: 0.4),
+        body: SafeArea(
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24.w),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: 20.h),
+                      Text(
+                        'Sign In',
+                        style: AppTextStyles.logoTitle.copyWith(
+                          fontSize: 28.sp,
                         ),
-                        child: _isLoading
-                            ? SizedBox(
-                                height: 24.h,
-                                width: 24.h,
-                                child: const CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
-                            : Text(
-                                'Send OTP',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 18.sp,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
                       ),
-                    ),
-                    const Spacer(),
-                    SizedBox(height: 40.h),
-                  ],
+                      SizedBox(height: 32.h),
+                      Text(
+                        'What is your phone number?',
+                        style: AppTextStyles.questionTitle.copyWith(
+                          fontSize: 24.sp,
+                        ),
+                      ),
+                      SizedBox(height: 12.h),
+                      Text(
+                        'We will send a 6-digit OTP. No password needed.',
+                        style: AppTextStyles.subtitle.copyWith(
+                          color: AppColors.textGray.withValues(alpha: 0.8),
+                        ),
+                      ),
+                      SizedBox(height: 48.h),
+                      // Phone Input
+                      PhoneInputField(
+                        controller: _phoneController,
+                        onChanged: (val) {
+                          setState(() {
+                            // Validation: Exactly 10 digits AND starts with 6, 7, 8, or 9
+                            final trimmed = val.trim();
+                            _isButtonEnabled = trimmed.length == 10 && 
+                                ['6', '7', '8', '9'].contains(trimmed[0]);
+                          });
+                        },
+                      ),
+                      SizedBox(height: 32.h),
+                      // Send OTP Button
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        child: ElevatedButton(
+                          onPressed: (_isButtonEnabled && !_isLoading) ? _handleSendOtp : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryPurple,
+                            disabledBackgroundColor: AppColors.primaryPurple.withValues(alpha: 0.2),
+                            foregroundColor: Colors.white,
+                            disabledForegroundColor: Colors.white.withValues(alpha: 0.5),
+                            minimumSize: Size(double.infinity, 56.h),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16.r),
+                            ),
+                            elevation: _isButtonEnabled ? 8 : 0,
+                            shadowColor: AppColors.primaryPurple.withValues(alpha: 0.4),
+                          ),
+                          child: _isLoading
+                              ? SizedBox(
+                                  height: 24.h,
+                                  width: 24.h,
+                                  child: const CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                              : Text(
+                                  'Continue',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 18.sp,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const Spacer(),
+                      SizedBox(height: 40.h),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

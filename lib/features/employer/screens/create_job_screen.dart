@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
@@ -21,6 +23,115 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
   int _currentStep = 1;
   bool _isLoading = false;
   
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _salaryController.dispose();
+    _descriptionController.dispose();
+    _villageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _detectLocation() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        child: Padding(
+          padding: EdgeInsets.all(24.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: AppColors.primaryPurple),
+              SizedBox(height: 16.h),
+              Text(
+                'Detecting GPS Location...',
+                style: GoogleFonts.poppins(fontSize: 16.sp, fontWeight: FontWeight.w600),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                'Searching satellite signals...',
+                style: GoogleFonts.poppins(fontSize: 13.sp, color: AppColors.textLightGray),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw Exception('Location services are disabled.');
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('Location permissions are denied');
+        }
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Location permissions are permanently denied, we cannot request permissions.');
+      } 
+
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+
+      List<Placemark> placemarks = await Geocoding().placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        
+        if (!mounted) return;
+        Navigator.pop(context); // Close loading dialog
+        
+        setState(() {
+          _selectedState = place.administrativeArea?.isNotEmpty == true ? place.administrativeArea : null;
+          _selectedDistrict = place.subAdministrativeArea?.isNotEmpty == true ? place.subAdministrativeArea : null;
+          _selectedMandal = place.locality?.isNotEmpty == true ? place.locality : null;
+          _villageController.text = place.subLocality ?? '';
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Location auto-detected: ${place.subLocality ?? place.locality}, ${place.subAdministrativeArea}.',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+            ),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        throw Exception('Could not determine address from coordinates.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceAll('Exception: ', ''),
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   // Form controllers
   final _titleController = TextEditingController();
   final _customTitleController = TextEditingController();
@@ -79,7 +190,7 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
       'Sports Coach',
     ],
     'Construction': [
-      'Mason',
+      'Bricklayer (Mason)',
       'Carpenter',
       'Plumber',
       'Electrician',
@@ -94,6 +205,73 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
       'Cook/Chef',
       'Maid/Cleaner',
       'Babysitter',
+    ],
+  };
+
+  // Predefined work postings data maps based on the PDF
+  final Map<String, List<String>> _workData = {
+    'Food & Grocery Shops': [
+      'Grocery / Kirana Store',
+      'Supermarket helper',
+      'Vegetable / Fruit Shop helper',
+      'Bakery / Sweet Shop helper',
+      'Dairy / Tea / Coffee Shop helper',
+      'Restaurant / Fast Food helper',
+    ],
+    'Clothing & Fashion Shops': [
+      'Clothes Shop assistant',
+      'Boutique assistant',
+      'Tailor Shop assistant',
+      'Footwear / Shoe Shop helper',
+      'Jewellery / Cosmetic Shop helper',
+    ],
+    'Electronics & Technology Shops': [
+      'Mobile Phone / Computer Shop helper',
+      'Electronics / TV Store helper',
+      'Camera / Gaming Shop assistant',
+    ],
+    'Health & Medical Shops': [
+      'Medical Store / Pharmacy helper',
+      'Ayurvedic / Optical Shop assistant',
+      'Surgical / Pet Medical Shop helper',
+    ],
+    'Education & Office Shops': [
+      'Book Store / Stationery helper',
+      'Printing / Photocopy Shop assistant',
+      'Internet Cafe operator',
+    ],
+    'Home & Furniture Shops': [
+      'Furniture / Mattress Shop helper',
+      'Hardware / Paint Shop helper',
+      'Electrical / Tiles / Sanitary helper',
+    ],
+    'Automobile Shops': [
+      'Bike / Car Showroom helper',
+      'Auto Spare Parts / Tyre Shop helper',
+      'Battery / Car Accessories helper',
+    ],
+    'Service Shops': [
+      'Barber Shop / Salon assistant',
+      'Beauty Parlour helper',
+      'Laundry Shop assistant',
+      'Repair / Tailoring Shop assistant',
+      'Photo Studio assistant',
+    ],
+    'Speciality Shops': [
+      'Gift / Toy Shop helper',
+      'Flower / Pet Shop helper',
+      'Art / Antique Shop assistant',
+    ],
+    'SALONS SHOP': [
+      'Barber stall worker',
+      'Hair / Nail salon stylist',
+      'Spa & wellness salon helper',
+      'Beauty and make up artist assistant',
+    ],
+    'Ground level staff or workers': [
+      'Mall / Hotel staff',
+      'Company / Sales staff',
+      'Goods handling staff',
     ],
   };
 
@@ -246,6 +424,7 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
   }
 
   Widget _buildJobTitleDropdown() {
+    final data = widget.isWork ? _workData : _jobData;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       decoration: BoxDecoration(
@@ -257,11 +436,11 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
         child: DropdownButtonFormField<String>(
           value: _selectedJobTitle,
           hint: Text(
-            'Select Job Title',
+            widget.isWork ? 'Select Work Title' : 'Select Job Title',
             style: GoogleFonts.poppins(color: AppColors.textLightGray, fontSize: 14.sp),
           ),
           decoration: const InputDecoration(border: InputBorder.none),
-          items: _jobData.keys.map((String value) {
+          items: data.keys.map((String value) {
             return DropdownMenuItem<String>(
               value: value,
               child: Text(value, style: GoogleFonts.poppins(fontSize: 15.sp)),
@@ -279,7 +458,8 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
   }
 
   Widget _buildCategoryDropdown() {
-    final categories = _selectedJobTitle != null ? _jobData[_selectedJobTitle!]! : <String>[];
+    final data = widget.isWork ? _workData : _jobData;
+    final categories = _selectedJobTitle != null ? data[_selectedJobTitle!]! : <String>[];
     
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -292,11 +472,11 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
         child: DropdownButtonFormField<String>(
           value: _selectedCategory,
           disabledHint: Text(
-            'Select Job Title first',
+            widget.isWork ? 'Select Work Title first' : 'Select Job Title first',
             style: GoogleFonts.poppins(color: AppColors.textLightGray, fontSize: 14.sp),
           ),
           hint: Text(
-            'Select Category',
+            widget.isWork ? 'Select Category' : 'Select Job Category',
             style: GoogleFonts.poppins(color: AppColors.textLightGray, fontSize: 14.sp),
           ),
           decoration: const InputDecoration(border: InputBorder.none),
@@ -572,20 +752,7 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
 
         // Detect Location automatically
         GestureDetector(
-          onTap: () {
-            setState(() {
-              _selectedState = 'Andhra Pradesh';
-              _selectedDistrict = 'Krishna';
-              _selectedMandal = 'Machilipatnam';
-              _villageController.text = 'Chilakalapudi';
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Location detected automatically!'),
-                backgroundColor: const Color(0xFF4CAF50),
-              ),
-            );
-          },
+          onTap: _detectLocation,
           child: Container(
             padding: EdgeInsets.all(16.w),
             decoration: BoxDecoration(

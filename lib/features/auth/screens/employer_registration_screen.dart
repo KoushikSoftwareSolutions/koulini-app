@@ -41,6 +41,17 @@ class _EmployerRegistrationScreenState extends State<EmployerRegistrationScreen>
   final List<String> _genders = ['Male', 'Female', 'Other'];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authState = Provider.of<AuthState>(context, listen: false);
+      if (authState.pendingPhone != null && authState.pendingPhone!.isNotEmpty) {
+        _phoneController.text = authState.pendingPhone!;
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _businessNameController.dispose();
     _ownerNameController.dispose();
@@ -112,7 +123,7 @@ class _EmployerRegistrationScreenState extends State<EmployerRegistrationScreen>
                     SizedBox(height: 20.h),
 
                     _buildLabel('Phone Number'),
-                    _buildTextField(_phoneController, '+91 98765 43210', keyboardType: TextInputType.phone),
+                    _buildTextField(_phoneController, '+91 98765 43210', keyboardType: TextInputType.phone, readOnly: true),
                     SizedBox(height: 20.h),
 
                     _buildLabel('Email'),
@@ -214,17 +225,21 @@ class _EmployerRegistrationScreenState extends State<EmployerRegistrationScreen>
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String hint, {TextInputType? keyboardType}) {
+  Widget _buildTextField(TextEditingController controller, String hint, {TextInputType? keyboardType, bool readOnly = false}) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: readOnly ? const Color(0xFFF0F0F0) : const Color(0xFFF9FAFB),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.2)),
       ),
       child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
-        style: GoogleFonts.poppins(fontSize: 15.sp),
+        readOnly: readOnly,
+        style: GoogleFonts.poppins(
+          fontSize: 15.sp,
+          color: readOnly ? AppColors.textGray : AppColors.textBlack,
+        ),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: GoogleFonts.poppins(color: AppColors.textLightGray, fontSize: 14.sp),

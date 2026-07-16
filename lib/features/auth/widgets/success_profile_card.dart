@@ -33,7 +33,7 @@ class SuccessProfileCard extends StatelessWidget {
         ? (profile?['ownerAge'] ?? 30)
         : (profile?['age'] ?? 25);
 
-    final String phone = profile?['phone'] ?? authState.pendingPhone ?? '+91 XXXXX XXXXX';
+    final String phone = profile?['phone'] ?? authState.phone ?? authState.pendingPhone ?? '+91 XXXXX XXXXX';
 
     // Initials for avatar
     String initials = 'MK';

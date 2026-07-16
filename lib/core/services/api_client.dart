@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// For Android emulator use: http://10.0.2.2:5001/api
 /// For iOS simulator use: http://localhost:5001/api
 /// For physical device: use your machine's local IP, e.g. http://192.168.1.x:5001/api
-const String kBaseUrl = 'http://72.61.229.223:5001/api';
+const String kBaseUrl = 'http://localhost:5001/api';
 
 /// Key used to store the JWT in SharedPreferences.
 const String kTokenKey = 'auth_token';
@@ -122,6 +122,48 @@ class ApiClient {
     try {
       final response = await http
           .put(
+            Uri.parse('$kBaseUrl$path'),
+            headers: await _headers(auth: auth),
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      return _parse(response);
+    } on SocketException {
+      return const ApiResult.err('No internet connection.');
+    } catch (e) {
+      return ApiResult.err('Something went wrong: $e');
+    }
+  }
+
+  Future<ApiResult<Map<String, dynamic>>> delete(
+    String path, {
+    bool auth = true,
+  }) async {
+    try {
+      final response = await http
+          .delete(
+            Uri.parse('$kBaseUrl$path'),
+            headers: await _headers(auth: auth),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      return _parse(response);
+    } on SocketException {
+      return const ApiResult.err('No internet connection.');
+    } catch (e) {
+      return ApiResult.err('Something went wrong: $e');
+    }
+  }
+
+  Future<ApiResult<Map<String, dynamic>>> patch(
+    String path,
+    Map<String, dynamic> body, {
+    bool auth = true,
+  }) async {
+    try {
+      final response = await http
+          .patch(
             Uri.parse('$kBaseUrl$path'),
             headers: await _headers(auth: auth),
             body: jsonEncode(body),

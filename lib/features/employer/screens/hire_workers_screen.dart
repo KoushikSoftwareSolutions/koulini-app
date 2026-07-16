@@ -6,7 +6,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/premium_image.dart';
 import '../../../core/services/worker_service.dart';
-import '../widgets/filter_chip_group.dart';
+import '../../../core/services/filter_storage_service.dart';
+import '../../home/widgets/role_aware_filter_bottom_sheet.dart';
 import 'worker_view_screen.dart';
 
 class HireWorkersScreen extends StatefulWidget {
@@ -17,11 +18,6 @@ class HireWorkersScreen extends StatefulWidget {
 }
 
 class _HireWorkersScreenState extends State<HireWorkersScreen> {
-  // Filter states
-  String _selectedExperience = 'All';
-  double _minRating = 0;
-  final Set<String> _selectedSkills = {};
-
   // Search state
   final TextEditingController _searchController = TextEditingController();
   
@@ -53,24 +49,11 @@ class _HireWorkersScreenState extends State<HireWorkersScreen> {
       _errorMessage = null;
     });
 
-    String? backendExp;
-    if (_selectedExperience == '0-2 yrs') {
-      backendExp = '1-2 Years';
-    } else if (_selectedExperience == '2-5 yrs') {
-      backendExp = '2-5 Years';
-    } else if (_selectedExperience == '5+ yrs') {
-      // Backend expects '5-10 Years' or '10+ Years' (we can default query to '5-10 Years' or search all).
-      // Let's pass '5-10 Years' as a matching backend enum.
-      backendExp = '5-10 Years';
-    }
-
-    final skillParam = _selectedSkills.isNotEmpty ? _selectedSkills.first : null;
+    final filter = await FilterStorageService.instance.getWorkerFilter();
 
     final result = await WorkerService.instance.getWorkers(
       search: _searchController.text.trim(),
-      skill: skillParam,
-      experienceLevel: backendExp,
-      minRating: _minRating > 0 ? _minRating : null,
+      filter: filter,
     );
 
     if (!mounted) return;
@@ -197,26 +180,17 @@ class _HireWorkersScreenState extends State<HireWorkersScreen> {
     );
   }
 
-  void _showFilterSheet(BuildContext context) {
-    showModalBottomSheet(
+  void _showFilterSheet(BuildContext context) async {
+    final result = await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _FilterSheetContent(
-        initialExperience: _selectedExperience,
-        initialRating: _minRating,
-        initialSkills: _selectedSkills,
-        onApply: (exp, rating, skills) {
-          setState(() {
-            _selectedExperience = exp;
-            _minRating = rating;
-            _selectedSkills.clear();
-            _selectedSkills.addAll(skills);
-          });
-          _fetchWorkers();
-        },
-      ),
+      builder: (context) => const RoleAwareFilterBottomSheet(),
     );
+    if (result != null) {
+      _fetchWorkers();
+    }
   }
 
   Widget _buildWorkerList(BuildContext context) {
@@ -416,207 +390,4 @@ class _HireWorkersScreenState extends State<HireWorkersScreen> {
   }
 }
 
-class _FilterSheetContent extends StatefulWidget {
-  final String initialExperience;
-  final double initialRating;
-  final Set<String> initialSkills;
-  final Function(String, double, Set<String>) onApply;
 
-  const _FilterSheetContent({
-    required this.initialExperience,
-    required this.initialRating,
-    required this.initialSkills,
-    required this.onApply,
-  });
-
-  @override
-  State<_FilterSheetContent> createState() => _FilterSheetContentState();
-}
-
-class _FilterSheetContentState extends State<_FilterSheetContent> {
-  late String _tempExperience;
-  late double _tempRating;
-  late Set<String> _tempSkills;
-
-  @override
-  void initState() {
-    super.initState();
-    _tempExperience = widget.initialExperience;
-    _tempRating = widget.initialRating;
-    _tempSkills = Set.from(widget.initialSkills);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(32.r),
-          topRight: Radius.circular(32.r),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(height: 12.h),
-          Container(
-            width: 40.w,
-            height: 4.h,
-            decoration: BoxDecoration(
-              color: AppColors.borderGray.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(2.r),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 16.h),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Filter Talent',
-                  style: GoogleFonts.poppins(
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textBlack,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _tempExperience = 'All';
-                      _tempRating = 0;
-                      _tempSkills.clear();
-                    });
-                  },
-                  child: Text(
-                    'Reset',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.redAccent,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Flexible(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FilterChipGroup(
-                    title: 'Experience Level',
-                    options: const ['All', '0-2 yrs', '2-5 yrs', '5+ yrs'],
-                    selectedOption: _tempExperience,
-                    onSelected: (val) => setState(() => _tempExperience = val),
-                  ),
-                  SizedBox(height: 32.h),
-                  Text(
-                    'Minimum Rating',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textBlack,
-                    ),
-                  ),
-                  SizedBox(height: 12.h),
-                  Row(
-                    children: List.generate(5, (index) {
-                      final starVal = index + 1.0;
-                      final isSelected = starVal <= _tempRating;
-                      return GestureDetector(
-                        onTap: () => setState(() => _tempRating = starVal),
-                        child: Padding(
-                          padding: EdgeInsets.only(right: 8.w),
-                          child: Icon(
-                            isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
-                            size: 32.sp,
-                            color: isSelected ? const Color(0xFFFBC02D) : AppColors.borderGray,
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                  SizedBox(height: 32.h),
-                  Text(
-                    'Preferred Skills',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textBlack,
-                    ),
-                  ),
-                  SizedBox(height: 12.h),
-                  Wrap(
-                    spacing: 12.w,
-                    runSpacing: 12.h,
-                    children: ['Mason', 'Painter', 'Electrician', 'Plumber', 'Carpenter', 'Cook', 'Driver'].map((skill) {
-                      final isSelected = _tempSkills.contains(skill);
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            if (isSelected) {
-                              _tempSkills.remove(skill);
-                            } else {
-                              _tempSkills.add(skill);
-                            }
-                          });
-                        },
-                        child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                          decoration: BoxDecoration(
-                            color: isSelected ? AppColors.primaryPurple.withValues(alpha: 0.1) : Colors.white,
-                            borderRadius: BorderRadius.circular(10.r),
-                            border: Border.all(
-                              color: isSelected ? AppColors.primaryPurple : AppColors.borderGray,
-                              width: 1.2,
-                            ),
-                          ),
-                          child: Text(
-                            skill,
-                            style: GoogleFonts.poppins(
-                              fontSize: 13.sp,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                              color: isSelected ? AppColors.primaryPurple : AppColors.textGray,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  SizedBox(height: 40.h),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.all(24.w),
-            child: ElevatedButton(
-              onPressed: () {
-                widget.onApply(_tempExperience, _tempRating, _tempSkills);
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryPurple,
-                foregroundColor: Colors.white,
-                minimumSize: Size(double.infinity, 56.h),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-                elevation: 4,
-                shadowColor: AppColors.primaryPurple.withValues(alpha: 0.3),
-              ),
-              child: Text(
-                'Apply Filters',
-                style: GoogleFonts.poppins(
-                  fontSize: 16.sp,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

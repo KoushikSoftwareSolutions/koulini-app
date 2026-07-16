@@ -17,7 +17,7 @@ class EmployerHomeScreen extends StatefulWidget {
 }
 
 class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
-  bool _showWork = false; // Toggle between Job and Work postings
+  bool _showWork = true; // Toggle between Job and Work postings - Work by default
   String _selectedFilter = 'All'; // Filter by: All, Active, Closed
 
   List<Map<String, dynamic>> _allPostings = [];
@@ -220,27 +220,6 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
           children: [
             Expanded(
               child: GestureDetector(
-                onTap: () => setState(() => _showWork = false),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: !_showWork ? AppColors.primaryPurple : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10.r),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Jobs',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.bold,
-                        color: !_showWork ? Colors.white : AppColors.textLightGray,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: GestureDetector(
                 onTap: () => setState(() => _showWork = true),
                 child: Container(
                   decoration: BoxDecoration(
@@ -254,6 +233,27 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
                         fontSize: 14.sp,
                         fontWeight: FontWeight.bold,
                         color: _showWork ? Colors.white : AppColors.textLightGray,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _showWork = false),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: !_showWork ? AppColors.primaryPurple : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'Jobs',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.bold,
+                        color: !_showWork ? Colors.white : AppColors.textLightGray,
                       ),
                     ),
                   ),
@@ -387,111 +387,116 @@ class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
           formattedDate = 'Recently';
         }
 
-        return Container(
-          margin: EdgeInsets.only(bottom: 16.h),
-          padding: EdgeInsets.all(20.w),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.1)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+        void navigateToApplicants() async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => JobApplicantsScreen(
+                job: item,
+                isWork: _showWork,
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      item['title'] ?? 'Title',
+            ),
+          );
+          _loadPostings(); // reload on return in case status changed
+        }
+
+        return GestureDetector(
+          onTap: navigateToApplicants,
+          child: Container(
+            margin: EdgeInsets.only(bottom: 16.h),
+            padding: EdgeInsets.all(20.w),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.1)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item['title'] ?? 'Title',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textBlack,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                      decoration: BoxDecoration(
+                        color: isActive ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE),
+                        borderRadius: BorderRadius.circular(8.r),
+                      ),
+                      child: Text(
+                        statusText,
+                        style: GoogleFonts.poppins(
+                          fontSize: 10.sp,
+                          fontWeight: FontWeight.bold,
+                          color: isActive ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  'Posted on $formattedDate',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13.sp,
+                    color: AppColors.textLightGray,
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                Divider(color: AppColors.borderGray.withValues(alpha: 0.1), height: 1.h),
+                SizedBox(height: 12.h),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${item['applicants'] ?? 0} Applicants',
                       style: GoogleFonts.poppins(
-                        fontSize: 16.sp,
+                        fontSize: 14.sp,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textBlack,
                       ),
                     ),
-                  ),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                    decoration: BoxDecoration(
-                      color: isActive ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE),
-                      borderRadius: BorderRadius.circular(8.r),
-                    ),
-                    child: Text(
-                      statusText,
-                      style: GoogleFonts.poppins(
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.bold,
-                        color: isActive ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 4.h),
-              Text(
-                'Posted on $formattedDate',
-                style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
-                  color: AppColors.textLightGray,
-                ),
-              ),
-              SizedBox(height: 16.h),
-              Divider(color: AppColors.borderGray.withValues(alpha: 0.1), height: 1.h),
-              SizedBox(height: 12.h),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${item['applicants'] ?? 0} Applicants',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textBlack,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => JobApplicantsScreen(
-                            job: item,
-                            isWork: _showWork,
+                    GestureDetector(
+                      onTap: navigateToApplicants,
+                      child: Row(
+                        children: [
+                          Text(
+                            'View all',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryPurple,
+                            ),
                           ),
-                        ),
-                      );
-                      _loadPostings(); // reload on return in case status changed
-                    },
-                    child: Row(
-                      children: [
-                        Text(
-                          'View all',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.bold,
+                          SizedBox(width: 4.w),
+                          Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 14.sp,
                             color: AppColors.primaryPurple,
                           ),
-                        ),
-                        SizedBox(width: 4.w),
-                        Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 14.sp,
-                          color: AppColors.primaryPurple,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },

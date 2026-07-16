@@ -74,14 +74,20 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final detailHeader = widget.isWork ? 'Work Details' : 'Job Details';
-    final worker = widget.applicant['worker'] as Map<String, dynamic>? ?? {};
-    final name = worker['name'] ?? 'Unknown';
-    final skill = worker['primarySkill'] ?? 'General Labour';
-    final age = worker['age'] ?? 'N/A';
-    final gender = worker['gender'] ?? 'N/A';
-    final experience = worker['experienceLevel'] ?? 'No Experience';
-    final rating = worker['rating']?.toString() ?? '0.0';
-    final photo = worker['profilePhoto'] as String? ?? 'https://i.pravatar.cc/150?u=$name';
+    final workerProfile = widget.applicant['workerProfileId'] as Map<String, dynamic>? ?? {};
+    final manager = widget.applicant['appliedByUserId'] as Map<String, dynamic>?;
+
+    final name = workerProfile['name'] ?? workerProfile['ownerName'] ?? 'Unknown Worker';
+    final skill = workerProfile['primarySkill'] ?? 'General Labour';
+    final age = workerProfile['age'] ?? 'N/A';
+    final gender = workerProfile['gender'] ?? 'N/A';
+    final experience = workerProfile['experienceLevel'] ?? 'No Experience';
+    final rating = workerProfile['rating']?.toString() ?? '0.0';
+    final photo = workerProfile['profilePhoto'] as String? ?? 'https://i.pravatar.cc/150?u=$name';
+
+    final bool isManaged = manager != null && workerProfile['managerUserId'] != null;
+    final String managerName = manager?['name'] ?? manager?['phone'] ?? 'User';
+    final String relationship = workerProfile['relationship'] ?? 'Managed';
 
     // Formatting date
     String formattedAppliedDate = 'Recently';
@@ -92,7 +98,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
 
     // Formatting location
     String locText = 'Bodhan';
-    final loc = worker['location'] as Map?;
+    final loc = workerProfile['location'] as Map?;
     if (loc != null) {
       locText = loc['mandal'] ?? loc['district'] ?? 'Bodhan';
     }
@@ -169,6 +175,24 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                                   color: AppColors.textLightGray.withValues(alpha: 0.7),
                                 ),
                               ),
+                              if (isManaged) ...[
+                                SizedBox(height: 4.h),
+                                Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(4.r),
+                                  ),
+                                  child: Text(
+                                    'Managed By: $managerName ($relationship)',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 10.sp,
+                                      color: Colors.orange.shade800,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -246,7 +270,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                     _buildDetailRow('Applied on', formattedAppliedDate),
                     _buildDetailRow(
                       'Phone', 
-                      _status == 'Approved' ? (worker['phone'] ?? 'N/A') : 'Hidden until approved',
+                      _status == 'Approved' ? (workerProfile['phone'] ?? manager?['phone'] ?? 'N/A') : 'Hidden until approved',
                       valueColor: _status == 'Approved' ? AppColors.textBlack : AppColors.textLightGray,
                     ),
                   ],

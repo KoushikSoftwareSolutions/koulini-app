@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/services/auth_state.dart';
 import '../../../core/services/application_service.dart';
+import '../../../core/services/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import 'application_success_screen.dart';
@@ -23,14 +24,41 @@ class ConfirmApplicationScreen extends StatefulWidget {
 
 class _ConfirmApplicationScreenState extends State<ConfirmApplicationScreen> {
   bool _isSubmitting = false;
+  bool _isLoadingProfiles = true;
+  List<dynamic> _managedProfiles = [];
+  Map<String, dynamic>? _selectedProfileData;
+  String? _selectedProfileId;
+  String? _uploadedResumeName;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchManagedProfiles();
+  }
+
+  Future<void> _fetchManagedProfiles() async {
+    if (MyApp.userRole != 'Worker') {
+      setState(() => _isLoadingProfiles = false);
+      return;
+    }
+    
+    final result = await ApiClient.instance.get('/worker-profiles/managed');
+    if (mounted) {
+      if (result.success && result.data != null) {
+         final allProfiles = result.data!['data'] as List<dynamic>? ?? [];
+         _managedProfiles = allProfiles.where((p) => p['status'] != 'Archived').toList();
+      }
+      setState(() => _isLoadingProfiles = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final authState = Provider.of<AuthState>(context);
-    final profile = authState.profile;
+    final profile = _selectedProfileData ?? authState.profile;
 
-    final String name = profile?['name'] ?? 'Worker';
-    final String skill = profile?['primarySkill'] ?? profile?['customSkill'] ?? 'General Worker';
+    final String name = profile?['name'] ?? (MyApp.userRole == 'Worker' ? 'Worker' : 'Applicant');
+    final String skill = profile?['primarySkill'] ?? profile?['customSkill'] ?? (MyApp.userRole == 'Worker' ? 'General Worker' : 'Professional');
     final loc = profile?['location'] as Map<String, dynamic>?;
     final String location = loc != null
         ? '${loc['village'] ?? loc['mandal'] ?? ''}, ${loc['district'] ?? ''}'.trim()
@@ -74,16 +102,35 @@ class _ConfirmApplicationScreenState extends State<ConfirmApplicationScreen> {
                         children: [
                           _buildCondensedJobCard(),
                           SizedBox(height: 32.h),
-                          Text(
-                            MyApp.userRole == 'Worker'
-                                ? 'Profile being shared with business owner'
-                                : 'Profile being shared with employer',
-                            style: AppTextStyles.questionTitle.copyWith(
-                              fontSize: 18.sp,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Applying As:',
+                                style: AppTextStyles.questionTitle.copyWith(
+                                  fontSize: 18.sp,
+                                ),
+                              ),
+                              if (!_isLoadingProfiles && _managedProfiles.isNotEmpty)
+                                TextButton.icon(
+                                  onPressed: _showProfileSelection,
+                                  icon: const Icon(Icons.switch_account, size: 18, color: AppColors.primaryPurple),
+                                  label: Text(
+                                    'Switch',
+                                    style: GoogleFonts.poppins(
+                                      color: AppColors.primaryPurple,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                          SizedBox(height: 16.h),
+                          SizedBox(height: 12.h),
                           _buildProfileCard(name, skill, location, experience),
+                          if (widget.job['resumeRequired'] == true) ...[
+                            SizedBox(height: 24.h),
+                            _buildResumeUploadSection(),
+                          ],
                         ],
                       ),
                     ),
@@ -271,6 +318,113 @@ class _ConfirmApplicationScreenState extends State<ConfirmApplicationScreen> {
     );
   }
 
+
+
+  Widget _buildResumeUploadSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Resume Required *',
+          style: AppTextStyles.questionTitle.copyWith(
+            fontSize: 18.sp,
+          ),
+        ),
+        SizedBox(height: 12.h),
+        GestureDetector(
+          onTap: _simulateResumeUpload,
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 16.w),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(
+                color: _uploadedResumeName != null
+                    ? const Color(0xFF4CAF50)
+                    : AppColors.borderGray.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _uploadedResumeName != null ? Icons.picture_as_pdf_rounded : Icons.cloud_upload_outlined,
+                  color: _uploadedResumeName != null ? const Color(0xFF4CAF50) : AppColors.primaryPurple,
+                  size: 28.sp,
+                ),
+                SizedBox(width: 16.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _uploadedResumeName ?? 'Upload Resume',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.w600,
+                          color: _uploadedResumeName != null ? AppColors.textBlack : AppColors.textGray,
+                        ),
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        _uploadedResumeName != null ? 'Format: PDF' : 'PDF format only (Max 5MB)',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12.sp,
+                          color: AppColors.textLightGray,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_uploadedResumeName != null)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                    onPressed: () => setState(() => _uploadedResumeName = null),
+                  )
+                else
+                  Icon(Icons.arrow_forward_ios_rounded, size: 14.sp, color: AppColors.textLightGray),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _simulateResumeUpload() {
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: EdgeInsets.all(24.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select Resume from Files',
+                style: GoogleFonts.poppins(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textBlack,
+                ),
+              ),
+              SizedBox(height: 20.h),
+              _buildResumeFileItem('Koulini_Resume_2026.pdf'),
+              SizedBox(height: 12.h),
+              _buildResumeFileItem('Professional_CV_Koushik.pdf'),
+              SizedBox(height: 24.h),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _submitApplication() async {
     final jobId = widget.job['id']?.toString();
     if (jobId == null || jobId.isEmpty) {
@@ -280,11 +434,25 @@ class _ConfirmApplicationScreenState extends State<ConfirmApplicationScreen> {
       return;
     }
 
+    if (widget.job['resumeRequired'] == true && _uploadedResumeName == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please upload a resume to apply.'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
     });
 
-    final result = await ApplicationService.instance.applyToJob(jobId);
+    final result = await ApplicationService.instance.applyToJob(
+       jobId, 
+       workerProfileId: _selectedProfileId, // null means Root profile
+    );
 
     if (!mounted) return;
 
@@ -308,5 +476,93 @@ class _ConfirmApplicationScreenState extends State<ConfirmApplicationScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _showProfileSelection() async {
+    final authState = Provider.of<AuthState>(context, listen: false);
+    final myProfile = authState.profile;
+
+    final selected = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: EdgeInsets.all(24.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select Profile to Apply',
+                style: GoogleFonts.poppins(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textBlack,
+                ),
+              ),
+              SizedBox(height: 20.h),
+              Expanded(
+                child: ListView(
+                   children: [
+                      ListTile(
+                         leading: CircleAvatar(
+                           backgroundImage: NetworkImage(myProfile?['profilePhoto'] ?? 'https://i.pravatar.cc/150'),
+                         ),
+                         title: Text('My Profile (Root)', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+                         onTap: () => Navigator.pop(context, myProfile),
+                      ),
+                      const Divider(),
+                      ..._managedProfiles.map((p) => ListTile(
+                         leading: CircleAvatar(
+                           backgroundImage: NetworkImage(p['profilePhoto'] ?? 'https://i.pravatar.cc/150'),
+                         ),
+                         title: Text(p['name'] ?? 'Worker', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                         subtitle: Text(p['relationship'] ?? ''),
+                         onTap: () => Navigator.pop(context, p as Map<String, dynamic>),
+                      )),
+                   ]
+                )
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (selected != null) {
+       setState(() {
+         _selectedProfileId = selected['_id']; // root profile won't have _id (unless it does, backend handles null as root)
+         _selectedProfileData = selected;
+       });
+    }
+  }
+
+  Widget _buildResumeFileItem(String name) {
+    return ListTile(
+      leading: const Icon(Icons.picture_as_pdf_rounded, color: Colors.redAccent),
+      title: Text(
+        name,
+        style: GoogleFonts.poppins(
+          fontSize: 14.sp,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      trailing: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primaryPurple),
+      onTap: () {
+        setState(() {
+          _uploadedResumeName = name;
+        });
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Uploaded $name successfully!'),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+    );
   }
 }

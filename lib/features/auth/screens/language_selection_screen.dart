@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../../../core/services/auth_state.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../widgets/language_card.dart';
-import '../../../../main.dart';
+
 
 import 'onboarding_screen.dart';
 
@@ -20,15 +21,44 @@ class LanguageSelectionScreen extends StatefulWidget {
 
 class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
   String selectedLanguage = 'English';
+  final FlutterTts _flutterTts = FlutterTts();
+  bool _hasSpoken = false;
 
   final List<Map<String, String>> languages = [
     {'name': 'English', 'char': 'A'},
     {'name': 'Telugu', 'char': 'అ'},
     {'name': 'Hindi', 'char': 'अ'},
     {'name': 'Tamil', 'char': 'அ'},
-    {'name': 'Malayalam', 'char': 'அ'},
-    {'name': 'Kannada', 'char': 'அ'},
+    {'name': 'Malayalam', 'char': 'അ'},
+    {'name': 'Kannada', 'char': 'ಅ'},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.isFromSettings) {
+      _speakWelcome();
+    }
+  }
+
+  @override
+  void dispose() {
+    _flutterTts.stop();
+    super.dispose();
+  }
+
+  Future<void> _speakWelcome() async {
+    if (_hasSpoken) return;
+    _hasSpoken = true;
+    try {
+      await _flutterTts.setLanguage("en-US");
+      await _flutterTts.setPitch(1.0);
+      await _flutterTts.setSpeechRate(0.5);
+      await _flutterTts.speak("Welcome to Koulini. Please select your language.");
+    } catch (e) {
+      debugPrint("TTS Error: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +110,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                       ),
                       child: Center(
                         child: Text(
-                          'K',
+                          'k',
                           style: GoogleFonts.poppins(
                             fontSize: 48.sp,
                             fontWeight: FontWeight.bold,
@@ -97,16 +127,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                     'Koulini',
                     style: AppTextStyles.logoTitle,
                   ),
-                // Subtitle
-                if (!widget.isFromSettings)
-                  Text(
-                    MyApp.userRole == 'Employer'
-                        ? 'workers near your area'
-                        : (MyApp.userRole == 'Worker'
-                            ? 'workers job near your area.'
-                            : 'workers job / workers near your area.'),
-                    style: AppTextStyles.subtitle,
-                  ),
+
                 if (!widget.isFromSettings) SizedBox(height: 60.h),
                 // Main Question
                 Padding(
@@ -172,7 +193,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                         'Kannada': 'kn',
                       };
                       final langCode = codeMap[selectedLanguage] ?? 'en';
-                      Provider.of<AuthState>(context, listen: false).language = langCode;
+                      Provider.of<AuthState>(context, listen: false).setLanguage(langCode);
 
                       if (widget.isFromSettings) {
                         ScaffoldMessenger.of(context).showSnackBar(

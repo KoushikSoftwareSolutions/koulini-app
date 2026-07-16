@@ -6,6 +6,7 @@ import 'core/services/auth_state.dart';
 import 'features/auth/screens/language_selection_screen.dart';
 import 'main_wrapper.dart';
 import 'features/employer/layout/employer_main_wrapper.dart';
+import 'l10n/app_localizations.dart';
 
 void main() {
   runApp(
@@ -21,11 +22,14 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // Track the user role globally ('Worker' or 'Employer')
-  static String userRole = '';
+  // Track the user role globally ('Worker', 'Jobs', 'Employer')
+  static String userRole = 'Worker';
 
   @override
   Widget build(BuildContext context) {
+    final authState = Provider.of<AuthState>(context);
+    final String currentLang = authState.language ?? 'en';
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final double width = constraints.maxWidth;
@@ -46,7 +50,9 @@ class MyApp extends StatelessWidget {
                 colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFA167F5)),
                 useMaterial3: true,
               ),
+              locale: Locale(currentLang),
               localizationsDelegates: const [
+                AppLocalizations.delegate,
                 GlobalMaterialLocalizations.delegate,
                 GlobalWidgetsLocalizations.delegate,
                 GlobalCupertinoLocalizations.delegate,
@@ -113,8 +119,8 @@ class _AppStartupWrapperState extends State<AppStartupWrapper> {
 
     final authState = Provider.of<AuthState>(context);
     if (authState.isLoggedIn) {
-      MyApp.userRole = authState.role ?? '';
-      if (authState.role == 'Employer') {
+      MyApp.userRole = authState.role ?? 'Worker';
+      if (authState.role == 'Employer' || authState.role == 'Jobs') {
         return const EmployerMainWrapper();
       } else {
         return const MainWrapper();

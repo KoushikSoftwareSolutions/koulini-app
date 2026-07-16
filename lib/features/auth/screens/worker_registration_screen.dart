@@ -5,9 +5,9 @@ import 'package:provider/provider.dart';
 import '../../../core/services/auth_state.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/enums/user_role.dart';
 import '../widgets/gender_selector.dart';
 import 'skill_selection_screen.dart';
-import '../../../../main.dart';
 
 class WorkerRegistrationScreen extends StatefulWidget {
   const WorkerRegistrationScreen({super.key});
@@ -19,16 +19,25 @@ class WorkerRegistrationScreen extends StatefulWidget {
 class _WorkerRegistrationScreenState extends State<WorkerRegistrationScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
-  final TextEditingController _aadhaarController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  String _selectedGender = 'Male';
+  String _selectedGender = 'Female';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authState = Provider.of<AuthState>(context, listen: false);
+      if (authState.pendingPhone != null && authState.pendingPhone!.isNotEmpty) {
+        _phoneController.text = authState.pendingPhone!;
+      }
+    });
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _ageController.dispose();
-    _aadhaarController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     super.dispose();
@@ -39,6 +48,7 @@ class _WorkerRegistrationScreenState extends State<WorkerRegistrationScreen> {
     required String hint,
     required TextEditingController controller,
     TextInputType keyboardType = TextInputType.text,
+    bool readOnly = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -54,7 +64,7 @@ class _WorkerRegistrationScreenState extends State<WorkerRegistrationScreen> {
         SizedBox(height: 8.h),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: readOnly ? AppColors.background : Colors.white,
             borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
               color: AppColors.borderGray.withValues(alpha: 0.3),
@@ -64,10 +74,11 @@ class _WorkerRegistrationScreenState extends State<WorkerRegistrationScreen> {
           child: TextFormField(
             controller: controller,
             keyboardType: keyboardType,
+            readOnly: readOnly,
             style: GoogleFonts.poppins(
               fontSize: 16.sp,
               fontWeight: FontWeight.w500,
-              color: AppColors.textBlack,
+              color: readOnly ? AppColors.textGray : AppColors.textBlack,
             ),
             decoration: InputDecoration(
               hintText: hint,
@@ -85,9 +96,13 @@ class _WorkerRegistrationScreenState extends State<WorkerRegistrationScreen> {
     );
   }
 
+
+
   @override
   Widget build(BuildContext context) {
-    final bool isJobsFlow = MyApp.userRole == 'Jobs';
+    final authState = Provider.of<AuthState>(context, listen: false);
+    final userRole = authState.pendingRole ?? UserRole.worker;
+    final content = userRole.content;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -156,9 +171,7 @@ class _WorkerRegistrationScreenState extends State<WorkerRegistrationScreen> {
                     ),
                     SizedBox(height: 8.h),
                     Text(
-                      isJobsFlow 
-                          ? 'Employers use this to find the right person.'
-                          : 'Business owners use this to find the right person.',
+                      content.personalDetailsSubtitle,
                       style: AppTextStyles.subtitle.copyWith(
                         color: AppColors.textGray.withValues(alpha: 0.8),
                       ),
@@ -198,19 +211,14 @@ class _WorkerRegistrationScreenState extends State<WorkerRegistrationScreen> {
                     ),
                     SizedBox(height: 24.h),
 
-                    if (isJobsFlow) ...[
-                      // Jobs flow specific ordering: 5. Aadhaar, 6. Phone, 7. Email
-                      _buildInputField(
-                        label: 'Aadhaar Card',
-                        hint: 'Enter 12-digit Aadhaar number',
-                        controller: _aadhaarController,
-                        keyboardType: TextInputType.number,
-                      ),
+                    if (userRole == UserRole.job) ...[
+                      // Jobs flow specific ordering: 5. Phone, 6. Email
                       _buildInputField(
                         label: 'Phone Number',
                         hint: 'Enter 10-digit phone number',
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
+                        readOnly: true,
                       ),
                       _buildInputField(
                         label: 'Email',
@@ -219,18 +227,13 @@ class _WorkerRegistrationScreenState extends State<WorkerRegistrationScreen> {
                         keyboardType: TextInputType.emailAddress,
                       ),
                     ] else ...[
-                      // Worker flow specific ordering: 5. Phone, 6. Aadhaar
+                      // Worker flow specific ordering: 5. Phone
                       _buildInputField(
                         label: 'Phone Number',
                         hint: 'Enter 10-digit phone number',
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
-                      ),
-                      _buildInputField(
-                        label: 'Aadhaar Card',
-                        hint: 'Enter 12-digit Aadhaar number',
-                        controller: _aadhaarController,
-                        keyboardType: TextInputType.number,
+                        readOnly: true,
                       ),
                     ],
                   ],
@@ -289,9 +292,6 @@ class _WorkerRegistrationScreenState extends State<WorkerRegistrationScreen> {
           authState.pendingName = name;
           authState.pendingAge = age;
           authState.pendingGender = _selectedGender;
-          authState.pendingAadhaar = _aadhaarController.text.trim().isNotEmpty 
-              ? _aadhaarController.text.trim() 
-              : null;
 
           Navigator.push(
             context,

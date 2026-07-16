@@ -1,9 +1,10 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'api_client.dart';
 import 'auth_service.dart';
 
-/// Holds the runtime auth state of the app.
-/// Provided to the widget tree via [ChangeNotifierProvider].
+import '../enums/user_role.dart';
+
 class AuthState extends ChangeNotifier {
   // ─── State fields ──────────────────────────────────────────────────────────
   bool _isLoggedIn = false;
@@ -12,15 +13,20 @@ class AuthState extends ChangeNotifier {
 
   /// Authenticated user's ID, role, and profile (from GET /me).
   String? userId;
+  String? phone;
   String? role;
   String? language;
   bool isRegistered = false;
+  bool hasPin = false;
   Map<String, dynamic>? profile;
 
   Map<String, dynamic>? stats;
   List<dynamic>? workHistory;
 
   // ─── Temporary fields shared across the multi-screen registration flow ────
+  /// Saved chosen role before OTP verification.
+  UserRole? pendingRole;
+
   /// Saved after OTP is verified (new user).
   String? pendingPhone;
 
@@ -29,10 +35,14 @@ class AuthState extends ChangeNotifier {
   int? pendingAge;
   String? pendingGender;
   String? pendingAadhaar;
+  String? pendingAadhaarPhoto;
 
   /// Saved after SkillSelectionScreen.
-  String? pendingSkill;
+  String? pendingCategory;
+  String? pendingSkill; // Role
+  String? pendingSpecialization;
   String? pendingCustomSkill;
+  String? pendingCustomSpecialization;
   String? pendingExperienceLevel;
 
   /// Saved in EmployerRegistrationScreen.
@@ -71,18 +81,44 @@ class AuthState extends ChangeNotifier {
       ApiClient.instance.saveToken(token);
     }
     userId = data['data']?['userId'] as String?;
+    phone = data['data']?['phone'] as String?;
     role = data['data']?['role'] as String?;
     isRegistered = data['data']?['isRegistered'] as bool? ?? false;
+    hasPin = data['data']?['hasPin'] as bool? ?? false;
     profile = data['data']?['profile'] as Map<String, dynamic>?;
     stats = data['data']?['stats'] as Map<String, dynamic>?;
     workHistory = data['data']?['workHistory'] as List<dynamic>?;
     _isLoggedIn = true;
   }
 
+  Future<void> setLanguage(String langCode) async {
+    language = langCode;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_language', langCode);
+  }
+
+  Future<void> setPendingRole(UserRole role) async {
+    pendingRole = role;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('pending_role', role.value);
+  }
+
   // ─── Try to restore session on app start ──────────────────────────────────
   Future<void> tryRestoreSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    language = prefs.getString('selected_language') ?? 'en';
+    final savedRole = prefs.getString('pending_role');
+    if (savedRole != null) {
+      pendingRole = UserRoleExtension.fromString(savedRole);
+    }
+
     final token = await ApiClient.instance.getToken();
-    if (token == null) return;
+    if (token == null) {
+      notifyListeners();
+      return;
+    }
 
     _setLoading(true);
     final result = await AuthService.instance.getMe();
@@ -92,6 +128,7 @@ class AuthState extends ChangeNotifier {
       final d = result.data!['data'] as Map<String, dynamic>?;
       if (d != null) {
         userId = d['userId'] as String?;
+        phone = d['phone'] as String?;
         role = d['role'] as String?;
         language = d['language'] as String?;
         isRegistered = d['isRegistered'] as bool? ?? false;
@@ -147,7 +184,72 @@ class AuthState extends ChangeNotifier {
 
     // Existing user — token is in the response
     _applyToken(result.data!);
+    
     notifyListeners();
+    return true;
+  }
+
+  // ─── PIN Authentication ───────────────────────────────────────────────────
+  Future<bool> loginWithPin({
+    required String phone,
+    required String pin,
+  }) async {
+    _setLoading(true);
+    _setError(null);
+
+    final result = await AuthService.instance.loginWithPin(phone: phone, pin: pin);
+
+    _setLoading(false);
+
+    if (!result.success) {
+      _setError(result.error);
+      return false;
+    }
+
+    _applyToken(result.data!);
+    hasPin = true; // logged in with PIN, so they definitely have one
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> setPin({
+    required String pin,
+    required String confirmPin,
+  }) async {
+    _setLoading(true);
+    _setError(null);
+
+    final result = await AuthService.instance.setPin(pin: pin, confirmPin: confirmPin);
+
+    _setLoading(false);
+
+    if (!result.success) {
+      _setError(result.error);
+      return false;
+    }
+
+    hasPin = true;
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> changePin({
+    required String currentPin,
+    required String newPin,
+    required String confirmPin,
+  }) async {
+    _setLoading(true);
+    _setError(null);
+
+    final result = await AuthService.instance.changePin(currentPin: currentPin, newPin: newPin, confirmPin: confirmPin);
+
+    _setLoading(false);
+
+    if (!result.success) {
+      _setError(result.error);
+      return false;
+    }
+
     return true;
   }
 
@@ -163,14 +265,17 @@ class AuthState extends ChangeNotifier {
 
     final data = WorkerRegistrationData(
       phone: pendingPhone!,
-      role: role ?? 'Worker',
+      role: pendingRole?.value ?? role ?? 'Worker',
       language: language ?? 'en',
       name: pendingName!,
       age: pendingAge!,
       gender: pendingGender!,
       aadhaarNumber: pendingAadhaar,
+      category: pendingCategory,
       primarySkill: pendingSkill,
+      specialization: pendingSpecialization,
       customSkill: pendingCustomSkill,
+      customSpecialization: pendingCustomSpecialization,
       experienceLevel: pendingExperienceLevel,
       state: state,
       district: district,
@@ -255,9 +360,11 @@ class AuthState extends ChangeNotifier {
     await ApiClient.instance.clearToken();
     _isLoggedIn = false;
     userId = null;
+    phone = null;
     role = null;
     language = null;
     isRegistered = false;
+    hasPin = false;
     profile = null;
     stats = null;
     workHistory = null;
@@ -272,8 +379,12 @@ class AuthState extends ChangeNotifier {
     pendingAge = null;
     pendingGender = null;
     pendingAadhaar = null;
+    pendingAadhaarPhoto = null;
+    pendingCategory = null;
     pendingSkill = null;
+    pendingSpecialization = null;
     pendingCustomSkill = null;
+    pendingCustomSpecialization = null;
     pendingExperienceLevel = null;
   }
 
